@@ -49,6 +49,9 @@ src/
 Dibaca dari **`.env` di root** (`envDir: '..'`). Hanya variabel `VITE_*` yang masuk ke bundle browser:
 `VITE_API_URL` (default `/api/v1`), `VITE_WS_PATH` (default `/socket.io`), `VITE_FEATURE_AI_PROMPT_BLOCK`.
 
+## Docker
+Image dibangun dari root dengan [`Dockerfile.frontend`](../Dockerfile.frontend) dan disajikan nginx ([`nginx.conf`](../nginx.conf)) yang juga mem-proxy `/api`, `/socket.io`, `/health` ke container backend.
+
 ## Catatan teknis
 - Tabel dibuat custom (bukan TanStack Table v9 yang API-nya baru berubah besar); virtualisasi memakai TanStack Virtual.
 - Gantt dibuat custom (keputusan D2): tanpa lisensi berbayar, mendukung hierarki & 1000 task (virtualisasi baris, grid via CSS gradient).

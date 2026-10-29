@@ -7,15 +7,15 @@ Spesifikasi: [`../Documentation/modul1/`](../Documentation/modul1/README.md).
 ## Menjalankan
 Lihat [README root](../README.md) untuk mode Docker & non-Docker. Ringkas (non-Docker):
 ```bash
-docker compose up -d redis      # dari root project: Redis di localhost:6380
-cd backend
+cd backend                      # PostgreSQL & Redis sudah berjalan sesuai .env root
 npm install                     # sekaligus menjalankan `prisma generate`
 npm run db:setup                # build → buat database → migrasi → seed demo
 npm run dev                     # http://localhost:3000
 ```
 - Konfigurasi dibaca dari **`.env` di root project** (satu file untuk backend & frontend), lihat [`../.env.example`](../.env.example).
 - API: `/api/v1` — Swagger: `/api/docs` — Health: `/health` — Socket.IO namespace `/realtime`.
-- Docker image dibangun dari root: `docker build -f backend/Dockerfile .` (dipakai `docker-compose.yml` di root).
+- Koneksi Redis: `REDIS_URL` atau `REDIS_HOST/PORT/USERNAME/PASSWORD/DB` (lihat `src/config/redis-url.ts`).
+- Docker image dibangun dari root: `docker build -f Dockerfile.backend .` (dipakai `docker-compose.yml` di root).
 
 ## Script
 | Script | Fungsi |

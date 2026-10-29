@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { buildDatabaseUrl } from './database-url';
+import { buildRedisUrl } from './redis-url';
 
 const bool = z.enum(['true', 'false', '1', '0']).transform((v) => v === 'true' || v === '1');
 const secret = (name: string) => z.string().min(32, `${name} minimal 32 karakter (buat dengan: openssl rand -base64 48)`);
@@ -11,7 +12,7 @@ export const envSchema = z.object({
   PUBLIC_API_URL: z.url().default('http://localhost:3000'),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL atau POSTGRES_USER/POSTGRES_PASSWORD wajib diisi'),
-  REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
+  REDIS_URL: z.string().min(1),
 
   JWT_ACCESS_SECRET: secret('JWT_ACCESS_SECRET'),
   JWT_ACCESS_TTL: z.string().regex(/^\d+[smhd]?$/, 'format: 900, 30s, 15m, 1h, 1d').default('15m'),
@@ -46,6 +47,7 @@ export function validateEnv(raw: NodeJS.ProcessEnv): Env {
   const cleaned: Record<string, string> = {};
   for (const [k, v] of Object.entries(raw)) if (v !== undefined && v !== '') cleaned[k] = v;
   cleaned.DATABASE_URL = buildDatabaseUrl(cleaned);
+  cleaned.REDIS_URL = buildRedisUrl(cleaned);
 
   const result = envSchema.safeParse(cleaned);
   if (!result.success) {

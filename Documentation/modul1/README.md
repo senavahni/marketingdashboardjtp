@@ -133,7 +133,7 @@ Perubahan penting yang perlu dicek (alasan ada di dokumen terkait):
 Perbedaan implementasi terhadap dokumen:
 - Struktur repo: `backend/` dan `frontend/` dengan **npm** (bukan monorepo pnpm `apps/*`); **satu `.env`, `.gitignore`, `.dockerignore`, dan `docker-compose.yml` di root**. Schema bersama tetap di `backend/src/shared/schemas/`.
 - RBAC memakai `AccessService` di layer service (bukan decorator `@RequireRole` per route) — hasil 404/403 tetap sesuai TASK_001 §C.2.
-- Redis lokal memakai port **6380** (`docker-compose.yml` root) karena Redis yang ada di 6379 memakai ACL. Web Docker di port **8088** (8080 dipakai traefik).
+- PostgreSQL & Redis memakai server yang sudah ada (`postgres_db`, `redis_secure`); docker compose hanya berisi backend (internal) + frontend nginx (port **8088**, 8080 dipakai traefik). Dockerfile & nginx.conf ada di root.
 - Frontend memakai proxy same-origin (`/api`, `/socket.io`) — Vite di dev, nginx di Docker — sehingga tidak perlu CORS lintas origin.
 - Tabel memakai komponen custom (bukan TanStack Table) dan Gantt custom (D2).
 - Lint (ESLint/typescript-eslint) belum dipasang karena belum mendukung TypeScript 7.

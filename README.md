@@ -15,55 +15,66 @@ Konfigurasi **satu file**: `.env` di root (dipakai backend, frontend, dan docker
 
 ## 1. Persiapan (sekali)
 
+Aplikasi memakai **PostgreSQL dan Redis yang sudah ada** (mis. container `postgres_db` di port 5432 dan `redis_secure` di
+port 6379) — keduanya tidak dijalankan oleh project ini.
+
 ```bash
 cp .env.example .env
 ```
-Isi minimal di `.env`:
+Isi di `.env`:
 
 | Variabel | Keterangan |
 |---|---|
-| `POSTGRES_USER`, `POSTGRES_PASSWORD` | Kredensial PostgreSQL (atau isi `DATABASE_URL`) |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD` (+ `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`) | Koneksi PostgreSQL. Database `matrika_dashboard` dibuat otomatis jika belum ada |
+| `REDIS_USERNAME`, `REDIS_PASSWORD` (+ `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`) | Koneksi Redis (user ACL `redis_secure`). Kosongkan user/password jika Redis tanpa auth |
 | `JWT_ACCESS_SECRET`, `MCP_SERVER_API_KEY`, `MCP_WEBHOOK_SECRET`, `MCP_SERVICE_TOKEN` | Secret acak ≥ 32 karakter: `openssl rand -base64 48` |
 
-Database `matrika_dashboard` dibuat otomatis jika belum ada.
+> Alternatif: isi `DATABASE_URL` / `REDIS_URL` langsung (khusus mode non-Docker; di Docker URL dibangun dari variabel terpisah).
 
 ---
 
-## 2. Menjalankan dengan Docker (paling mudah)
+## 2. Menjalankan dengan Docker
 
-Prasyarat: Docker + Docker Compose.
+Prasyarat: Docker + Docker Compose, PostgreSQL & Redis sudah berjalan di mesin host.
 
 ```bash
 docker compose up -d --build
 ```
-| Layanan | Alamat |
-|---|---|
-| Aplikasi web (nginx: frontend + proxy API) | http://localhost:8088 (`DOCKER_WEB_PORT`) |
-| Health check | http://localhost:8088/health |
-| Swagger API | http://localhost:8088/api/docs (jika `SWAGGER_ENABLED=true`) |
-| Redis | localhost:6380 |
 
-- Container backend menjalankan **create database → migrasi → start** otomatis.
-- Secara default backend memakai **PostgreSQL di mesin host** (mis. container `postgres_db` di port 5432) lewat `host.docker.internal`.
-- Ingin PostgreSQL di dalam compose? Set `DOCKER_POSTGRES_HOST=postgres` di `.env`, lalu `docker compose --profile with-db up -d --build`.
+```
+Browser ──► :8088  nginx (frontend)  ──/api, /socket.io, /health──►  backend:3000 (jaringan internal docker)
+                                                                        │
+                                                    host.docker.internal ├──► PostgreSQL (POSTGRES_PORT)
+                                                                        └──► Redis (REDIS_PORT)
+```
+- Hanya **frontend (nginx)** yang diekspos: http://localhost:8088 (`DOCKER_WEB_PORT`). Backend tidak membuka port ke host.
+- Backend menjangkau Postgres & Redis di host lewat `host.docker.internal` (atur dengan `DOCKER_POSTGRES_HOST` / `DOCKER_REDIS_HOST`);
+  port & kredensial tetap dari `POSTGRES_*` / `REDIS_*`.
+- Saat start, backend otomatis **membuat database (jika belum ada) → migrasi → menjalankan API**.
+
+| Alamat | Keterangan |
+|---|---|
+| http://localhost:8088 | Aplikasi web |
+| http://localhost:8088/health | Health check (status DB & Redis) |
+| http://localhost:8088/api/docs | Swagger (jika `SWAGGER_ENABLED=true`) |
 
 Isi data demo (sekali):
 ```bash
 docker compose exec -e NODE_ENV=development backend npm run db:seed
 ```
-
 Perintah lain:
 ```bash
-docker compose logs -f backend      # lihat log
-docker compose down                 # hentikan (data Redis tetap di volume)
+docker compose logs -f backend      # log backend
 docker compose up -d --build        # rebuild setelah kode berubah
+docker compose down                 # hentikan
 ```
+File Docker ada di root: [`Dockerfile.backend`](Dockerfile.backend), [`Dockerfile.frontend`](Dockerfile.frontend), [`nginx.conf`](nginx.conf), [`docker-compose.yml`](docker-compose.yml).
 
 ---
 
-## 3. Menjalankan tanpa Docker (mode development)
+## 3. Menjalankan tanpa Docker (development)
 
-Prasyarat: **Node.js 24+**, PostgreSQL 16+, Redis 7 (boleh pakai `docker compose up -d redis` → port 6380).
+Prasyarat: **Node.js 24+**, PostgreSQL & Redis sudah berjalan (sesuai `.env`, host `localhost`).
 
 ```bash
 # Terminal 1 — backend (http://localhost:3000)
@@ -81,7 +92,8 @@ Buka **http://localhost:5173**. Vite mem-proxy `/api` dan `/socket.io` ke backen
 (cookie refresh token tetap aman `SameSite=Lax`).
 
 Build produksi tanpa Docker: `cd backend && npm run build && npm run start:prod`, lalu `cd frontend && npm run build` dan sajikan
-`frontend/dist` dengan web server yang mem-proxy `/api`, `/socket.io`, `/health` ke backend (contoh: [`frontend/nginx.conf`](frontend/nginx.conf)).
+`frontend/dist` dengan web server yang mem-proxy `/api`, `/socket.io`, `/health` ke backend (contoh: [`nginx.conf`](nginx.conf), ganti
+`backend:3000` dengan alamat backend).
 
 ---
 
@@ -122,10 +134,13 @@ Seed juga membuat project **🚀 Q4 Product Launch** (task, subtask, milestone, 
 
 ```
 .
-├── .env / .env.example      # satu konfigurasi untuk semua
+├── .env / .env.example      # satu konfigurasi untuk semua (Postgres, Redis, secret, frontend, docker)
 ├── .gitignore / .dockerignore
 ├── .prettierrc
-├── docker-compose.yml       # redis, backend, frontend (+ postgres opsional)
+├── docker-compose.yml       # backend (internal) + frontend nginx (satu-satunya port terekspos)
+├── Dockerfile.backend
+├── Dockerfile.frontend
+├── nginx.conf               # sajikan SPA + proxy /api, /socket.io, /health ke backend
 ├── backend/                 # API (lihat backend/README.md)
 ├── frontend/                # Web app (lihat frontend/README.md)
 └── Documentation/modul1/    # spesifikasi

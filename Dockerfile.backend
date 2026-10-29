@@ -1,6 +1,7 @@
-# Build context: root project  →  docker build -f backend/Dockerfile .
+# Build context: root project  →  docker build -f Dockerfile.backend .
 # ---- build ----
 FROM node:24-bookworm-slim AS build
+RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/backend
 COPY backend/package.json backend/package-lock.json ./
 COPY backend/prisma ./prisma
