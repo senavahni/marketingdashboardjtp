@@ -1,0 +1,68 @@
+# Matrika Dashboard Marketing — docker compose (root project)
+#
+#   docker compose up -d --build              → redis + backend + frontend (web: http://localhost:8088)
+#   docker compose up -d redis                → hanya Redis (untuk mode non-docker)
+#   docker compose --profile with-db up -d    → + PostgreSQL bawaan (set DOCKER_POSTGRES_HOST=postgres di .env)
+#
+# Semua konfigurasi dibaca dari satu file .env di root.
+name: matrika-dashboard
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: matrika_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6380:6379"]
+    volumes: [redisdata:/data]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  postgres:
+    profiles: [with-db]
+    image: postgres:16
+    container_name: matrika_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-matrika_dashboard}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    container_name: matrika_backend
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      POSTGRES_HOST: ${DOCKER_POSTGRES_HOST:-host.docker.internal}
+      POSTGRES_PORT: ${DOCKER_POSTGRES_PORT:-5432}
+      REDIS_URL: redis://redis:6379
+      APP_URL: http://localhost:${DOCKER_WEB_PORT:-8088}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_FEATURE_AI_PROMPT_BLOCK: ${VITE_FEATURE_AI_PROMPT_BLOCK:-false}
+    container_name: matrika_frontend
+    ports: ["${DOCKER_WEB_PORT:-8088}:80"]
+    depends_on: [backend]
+    restart: unless-stopped
+
+volumes:
+  redisdata:
+  pgdata:

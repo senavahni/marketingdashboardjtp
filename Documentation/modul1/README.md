@@ -123,12 +123,17 @@ Perubahan penting yang perlu dicek (alasan ada di dokumen terkait):
 | TASK_001 | ✅ Backend selesai | Folder [`backend/`](../../backend/README.md). D1 terverifikasi: TypeScript 7.0.2 + NestJS 12.3 berjalan |
 | TASK_002 | ✅ Backend selesai | Termasuk dispatch/estimasi/mention/cancel ke MCP via BullMQ |
 | TASK_003 | ✅ Backend selesai | Block API, timeline, webhook MCP, Agent API, Socket.IO |
-| TASK_004–007 | Belum dimulai | Frontend |
-| TASK_008 | Sebagian | Unit test + smoke test E2E backend; CI/CD & deployment belum |
+| TASK_004 | Diganti implementasi langsung | UI mengikuti pola Notion (lihat `frontend/README.md`); mockup Figma belum dibuat |
+| TASK_005 | ✅ Selesai | BlockNote: slash, mention, toggle, tabel, embed link, AI Prompt (flag), auto-save + konflik versi + update real-time |
+| TASK_006 | ✅ Selesai | Tabel (custom + virtualisasi), Board (dnd-kit), Timeline (Gantt custom — D2 diputuskan: custom) |
+| TASK_007 | ✅ Selesai | Assignee picker Humans/AI Agents, badge status agent, komentar + mention, activity, Inbox, toast real-time |
+| TASK_008 | Sebagian | Unit test backend & frontend, smoke test API, E2E browser (Playwright) lulus; Docker compose siap; CI/CD belum |
 | TASK_009 | Belum | Hanya CLI `mcp:send-event`; Mock MCP Server belum dibuat |
 
 Perbedaan implementasi terhadap dokumen:
-- Struktur repo: backend berdiri sendiri di folder `backend/` dengan **npm** (bukan monorepo pnpm `apps/api`); schema bersama ada di `backend/src/shared/schemas/` dan nanti dipindah ke `packages/shared` saat frontend dibuat.
+- Struktur repo: `backend/` dan `frontend/` dengan **npm** (bukan monorepo pnpm `apps/*`); **satu `.env`, `.gitignore`, `.dockerignore`, dan `docker-compose.yml` di root**. Schema bersama tetap di `backend/src/shared/schemas/`.
 - RBAC memakai `AccessService` di layer service (bukan decorator `@RequireRole` per route) — hasil 404/403 tetap sesuai TASK_001 §C.2.
-- Redis lokal memakai port **6380** (`backend/docker-compose.yml`) karena Redis yang ada di 6379 memakai ACL.
+- Redis lokal memakai port **6380** (`docker-compose.yml` root) karena Redis yang ada di 6379 memakai ACL. Web Docker di port **8088** (8080 dipakai traefik).
+- Frontend memakai proxy same-origin (`/api`, `/socket.io`) — Vite di dev, nginx di Docker — sehingga tidak perlu CORS lintas origin.
+- Tabel memakai komponen custom (bukan TanStack Table) dan Gantt custom (D2).
 - Lint (ESLint/typescript-eslint) belum dipasang karena belum mendukung TypeScript 7.

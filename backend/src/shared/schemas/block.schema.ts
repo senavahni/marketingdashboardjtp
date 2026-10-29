@@ -44,17 +44,21 @@ const textProps = z.object({
   textAlignment: alignment.optional(),
 });
 
-const tableCell = z.union([
-  inlineArray,
-  z.object({ type: z.literal('tableCell'), props: z.record(z.string(), z.unknown()).optional(), content: inlineArray }).transform((c) => ({
-    type: 'tableCell' as const,
-    props: {},
-    content: c.content,
-  })),
-]);
+const tableCellProps = z
+  .object({
+    backgroundColor: color.optional(),
+    textColor: color.optional(),
+    textAlignment: alignment.optional(),
+    colspan: z.number().int().min(1).max(20).optional(),
+    rowspan: z.number().int().min(1).max(50).optional(),
+  })
+  .default({});
+const tableCell = z.union([inlineArray, z.object({ type: z.literal('tableCell'), props: tableCellProps, content: inlineArray })]);
 const tableContent = z.object({
   type: z.literal('tableContent'),
   columnWidths: z.array(z.number().positive().max(4000).nullable()).max(20).optional(),
+  headerRows: z.number().int().min(0).max(1).optional(),
+  headerCols: z.number().int().min(0).max(1).optional(),
   rows: z.array(z.object({ cells: z.array(tableCell).max(20) })).max(50),
 });
 
@@ -65,7 +69,11 @@ const propsOnly = <P extends z.ZodType>(props: P) => z.object({ props: props.def
 /** Schema content_json per block_type. */
 export const BLOCK_SCHEMAS = {
   paragraph: withContent(textProps, inlineArray),
-  heading: withContent(textProps.extend({ level: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1) }), inlineArray),
+  heading: withContent(
+    textProps.extend({ level: z.union([z.literal(1), z.literal(2), z.literal(3)]).default(1), isToggleable: z.boolean().optional() }),
+    inlineArray,
+  ),
+  toggleListItem: withContent(textProps, inlineArray),
   bulletListItem: withContent(textProps, inlineArray),
   numberedListItem: withContent(textProps.extend({ start: z.number().int().min(1).max(100000).optional() }), inlineArray),
   checkListItem: withContent(textProps.extend({ checked: z.boolean().default(false) }), inlineArray),
@@ -86,7 +94,7 @@ export const BLOCK_SCHEMAS = {
   divider: propsOnly(z.object({})),
   bookmark: propsOnly(
     z.object({
-      url: httpUrl.pipe(z.string().min(1, 'URL bookmark wajib diisi')),
+      url: httpUrl.default(''), // '' = placeholder yang belum diisi user
       title: cleanText(300).optional(),
       description: cleanText(1000).optional(),
     }),
@@ -94,9 +102,9 @@ export const BLOCK_SCHEMAS = {
   aiPrompt: propsOnly(
     z.object({
       prompt: cleanText(4000).default(''),
-      agent_id: z.uuid().nullable().optional(),
+      agent_id: z.union([z.uuid(), z.literal('')]).nullable().optional(),
       status: z.enum(['idle', 'running', 'completed', 'failed']).default('idle'),
-      last_run_id: z.uuid().nullable().optional(),
+      last_run_id: z.union([z.uuid(), z.literal('')]).nullable().optional(),
     }),
   ),
 } as const;

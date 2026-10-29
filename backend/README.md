@@ -4,27 +4,18 @@ NestJS + Prisma + PostgreSQL + Redis. Mengimplementasikan **M1_TASK_001** (DB, a
 **M1_TASK_002** (core API + dispatch agent) dan **M1_TASK_003** (block editor, timeline, webhook MCP, Agent API, real-time).
 Spesifikasi: [`../Documentation/modul1/`](../Documentation/modul1/README.md).
 
-## Prasyarat
-- Node.js **24+** (atau jalankan lewat Docker image `node:24`)
-- PostgreSQL 16+ (container `postgres_db` yang sudah ada)
-- Redis 7 — pakai `docker compose up -d redis` (port **6380**) atau Redis lain via `REDIS_URL`
-
-## Menjalankan (pertama kali)
+## Menjalankan
+Lihat [README root](../README.md) untuk mode Docker & non-Docker. Ringkas (non-Docker):
 ```bash
+docker compose up -d redis      # dari root project: Redis di localhost:6380
 cd backend
-cp .env.example .env            # isi JWT_ACCESS_SECRET & 3 secret MCP (openssl rand -base64 48)
-                                # POSTGRES_USER/POSTGRES_PASSWORD otomatis dibaca dari ../.env
-docker compose up -d redis      # Redis khusus project di localhost:6380
 npm install                     # sekaligus menjalankan `prisma generate`
 npm run db:setup                # build → buat database → migrasi → seed demo
-npm run dev                     # watch mode: http://localhost:3000
+npm run dev                     # http://localhost:3000
 ```
-- API: `http://localhost:3000/api/v1` — Swagger: `http://localhost:3000/api/docs` — Health: `http://localhost:3000/health`
-- Real-time: Socket.IO namespace `/realtime`, `io(url + '/realtime', { auth: { token } })`
-- Akun demo (password `SEED_DEMO_PASSWORD`, default `Demo12345!`): `owner@demo.local` (Owner), `manager@demo.local` (Admin),
-  `member@demo.local`, `viewer@demo.local`, `outsider@demo.local` (bukan anggota — untuk uji IDOR).
-
-> Memakai Redis `redis_secure` yang sudah ada: set `REDIS_URL=redis://<user>:<password>@localhost:6379`.
+- Konfigurasi dibaca dari **`.env` di root project** (satu file untuk backend & frontend), lihat [`../.env.example`](../.env.example).
+- API: `/api/v1` — Swagger: `/api/docs` — Health: `/health` — Socket.IO namespace `/realtime`.
+- Docker image dibangun dari root: `docker build -f backend/Dockerfile .` (dipakai `docker-compose.yml` di root).
 
 ## Script
 | Script | Fungsi |
@@ -45,7 +36,7 @@ backend/
 ├── prisma/
 │   ├── schema.prisma                 # model = DDL di M1_TASK_001
 │   └── migrations/…_init/            # SQL hasil Prisma + SQL manual (CHECK, partial index, tsvector)
-├── prisma.config.ts
+├── prisma.config.ts              # membaca ../.env
 ├── src/
 │   ├── main.ts                       # bootstrap: helmet, cookie, CORS, prefix /api/v1, Swagger, Socket.IO Redis adapter
 │   ├── app.module.ts                 # registrasi modul + guard global (JWT → rate limit) + filter error
@@ -92,11 +83,13 @@ transaksi Prisma) → efek setelah commit (`AfterCommit`: emit Socket.IO, enqueu
   untuk membuat migrasi otomatis tanpa memeriksa hasilnya (Prisma akan mencoba menghapus constraint/index manual).
 - RBAC diimplementasikan sebagai `AccessService` yang dipanggil di setiap service (bukan decorator per route) agar resource
   yang di-resolve dari body (mis. `project_id` di `/blocks/batch`) ikut tercek.
+- Block type yang diterima juga mencakup `toggleListItem`, heading `isToggleable`, header/warna sel tabel, dan placeholder
+  kosong untuk `bookmark`/`aiPrompt` (agar dokumen dari editor BlockNote tersimpan utuh).
 - Mock MCP Server (TASK_009) belum dibuat; tanpa MCP Server, assign ke agent akan di-retry 5x lalu berstatus `failed`.
   Webhook bisa disimulasikan dengan `npm run mcp:send-event`.
 
 ## Status Verifikasi
-- 33 unit test lulus (`npm test`).
+- 34 unit test lulus (`npm test`).
 - Smoke test end-to-end terhadap PostgreSQL nyata (79 skenario): auth + rotasi/reuse refresh token, IDOR & RBAC, CRUD,
   hierarki 3 level & circular, timeline + cascade reschedule, block batch + konflik versi + XSS, komentar & mention,
   webhook (signature, idempotency, run tidak aktif), Agent API, Socket.IO, cascade delete, rate limit.

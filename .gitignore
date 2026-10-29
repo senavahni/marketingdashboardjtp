@@ -1,7 +1,30 @@
-node_modules/
-dist/
-coverage/
-.npm-cache/
-src/generated/
+# ---- Environment (satu .env di root; hanya .env.example yang di-commit) ----
 .env
+.env.*
+!.env.example
+
+# ---- Dependencies & cache ----
+node_modules/
+.npm-cache/
+.pnpm-store/
+
+# ---- Build output ----
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# ---- Backend ----
+backend/src/generated/
+
+# ---- Frontend ----
+frontend/.vite/
+
+# ---- Logs & OS/editor ----
 *.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

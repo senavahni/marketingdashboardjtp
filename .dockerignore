@@ -1,0 +1,14 @@
+# Build context = root project (docker compose memakai context ".")
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+**/node_modules
+**/dist
+**/coverage
+**/.npm-cache
+**/*.log
+backend/src/generated
+frontend/.vite
+Documentation

@@ -21,6 +21,7 @@ describe('block.schema', () => {
     ['link javascript:', 'paragraph', { content: [{ type: 'link', href: 'javascript:alert(1)', content: [text('x')] }] }],
     ['image data:', 'image', { props: { url: 'data:text/html,<script>alert(1)</script>' } }],
     ['bookmark javascript:', 'bookmark', { props: { url: 'javascript:alert(1)' } }],
+    ['tableCell props asing tetap ditolak tipe', 'table', { content: { type: 'tableContent', rows: [{ cells: [{ type: 'tableCell', props: { colspan: 'x' }, content: [] }] }] } }],
     ['block_type tak dikenal', 'iframe', { props: {} }],
     ['heading level 4', 'heading', { props: { level: 4 }, content: [] }],
   ])('menolak %s', (_label, type, content) => {

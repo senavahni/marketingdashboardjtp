@@ -1,11 +1,10 @@
 /**
- * Side-effect module: memuat file .env SEBELUM modul lain di-import
- * (decorator seperti @WebSocketGateway membaca process.env saat import).
- * Urutan: backend/.env, lalu ../.env (root project). Nilai yang sudah ada tidak ditimpa.
+ * Side-effect module: memuat file .env di ROOT project (satu .env untuk backend & frontend)
+ * SEBELUM modul lain di-import (decorator seperti @WebSocketGateway membaca process.env saat import).
+ * Variabel yang sudah ada di environment (mis. dari docker compose) tidak ditimpa.
  */
 import { config as loadDotenv } from 'dotenv';
 import * as path from 'node:path';
 
-const backendRoot = path.resolve(__dirname, '..', '..');
-loadDotenv({ path: path.join(backendRoot, '.env'), quiet: true });
-loadDotenv({ path: path.join(backendRoot, '..', '.env'), quiet: true });
+// dist/config/load-env.js atau src/config/load-env.ts → naik 3 level ke root project
+loadDotenv({ path: path.resolve(__dirname, '..', '..', '..', '.env'), quiet: true });
