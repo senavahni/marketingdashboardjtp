@@ -1,0 +1,85 @@
+{
+  "name": "matrika-dashboard-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend Modul 1 - Agentic Project Management (NestJS + Prisma + PostgreSQL)",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "postinstall": "prisma generate",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node --enable-source-maps dist/main.js",
+    "start:prod": "prisma migrate deploy && node --enable-source-maps dist/main.js",
+    "dev": "npm run build && concurrently -k -n tsc,api -c blue,green \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --watch-path=dist --enable-source-maps dist/main.js\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js",
+    "test:cov": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js --coverage",
+    "prisma:generate": "prisma generate",
+    "db:create": "npm run build && node dist/scripts/create-database.js",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "node dist/database/seeds/seed.js",
+    "db:seed:large": "node dist/database/seeds/seed-large.js",
+    "db:setup": "npm run build && node dist/scripts/create-database.js && prisma migrate deploy && node dist/database/seeds/seed.js",
+    "mcp:send-event": "node dist/scripts/send-mcp-event.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@nestjs/common": "12.3.2",
+    "@nestjs/core": "12.3.2",
+    "@nestjs/jwt": "12.0.3",
+    "@nestjs/platform-express": "12.3.2",
+    "@nestjs/platform-socket.io": "12.3.2",
+    "@nestjs/swagger": "12.0.5",
+    "@nestjs/websockets": "12.3.2",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "@socket.io/redis-adapter": "8.3.0",
+    "argon2": "0.45.1",
+    "bullmq": "6.5.1",
+    "cookie-parser": "1.4.7",
+    "dotenv": "18.0.9",
+    "helmet": "8.3.0",
+    "ioredis": "6.0.0",
+    "nestjs-pino": "5.3.1",
+    "pg": "8.23.1",
+    "pino": "10.4.0",
+    "pino-http": "11.0.0",
+    "prisma": "7.10.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "socket.io": "4.8.4",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@swc/core": "1.16.20",
+    "@swc/jest": "0.2.39",
+    "@types/cookie-parser": "1.4.10",
+    "@types/express": "5.0.6",
+    "@types/jest": "30.0.0",
+    "@types/node": "24.19.2",
+    "@types/pg": "8.23.1",
+    "concurrently": "10.0.6",
+    "jest": "30.5.2",
+    "pino-pretty": "13.2.0",
+    "prettier": "3.9.10",
+    "typescript": "7.0.2"
+  },
+  "overrides": {
+    "@nestjs/swagger": {
+      "typescript": "$typescript"
+    }
+  },
+  "allowScripts": {
+    "prisma@7.10.1": true,
+    "@prisma/engines@7.10.1": true,
+    "@scarf/scarf": false,
+    "@parcel/watcher": false,
+    "msgpackr-extract": false,
+    "unrs-resolver": false,
+    "@swc/core": false,
+    "argon2": false
+  }
+}

@@ -1,0 +1,359 @@
+// Prisma schema Modul 1 — sumber kebenaran: DDL di Documentation/modul1/M1_TASK_001_INFRA_SECURITY_DB.md
+// Fitur yang tidak bisa diekspresikan Prisma (CHECK constraint, partial index, kolom generated
+// `document_blocks.search_vector`, extension citext) ditulis manual di file migrasi SQL.
+// Nama field = nama kolom (snake_case) agar konsisten dengan kontrak API.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum workspace_role {
+  owner
+  admin
+  member
+  viewer
+}
+
+enum task_status {
+  todo
+  in_progress
+  in_review
+  done
+}
+
+enum task_priority {
+  none
+  low
+  medium
+  high
+  urgent
+}
+
+enum actor_type {
+  user
+  agent
+  system
+}
+
+enum agent_work_status {
+  idle
+  queued
+  thinking
+  working
+  completed
+  failed
+}
+
+enum agent_run_trigger {
+  assignment
+  mention
+  prompt_block
+}
+
+enum agent_run_status {
+  queued
+  dispatched
+  running
+  completed
+  failed
+  cancelled
+}
+
+enum entity_type {
+  workspace
+  project
+  task
+  block
+  comment
+  agent
+  member
+}
+
+model users {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String    @unique @db.Citext
+  username      String    @unique @db.Citext
+  display_name  String    @db.VarChar(100)
+  password_hash String
+  avatar_url    String?
+  is_active     Boolean   @default(true)
+  last_login_at DateTime? @db.Timestamptz(6)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  refresh_tokens   refresh_tokens[]
+  owned_workspaces workspaces[]        @relation("workspace_owner")
+  memberships      workspace_members[]
+  agents_created   agents[]            @relation("agent_creator")
+  projects_created projects[]          @relation("project_creator")
+  assigned_tasks   tasks[]             @relation("task_assignee_user")
+  comments         comments[]          @relation("comment_author_user")
+  notifications    notifications[]
+  dispatched_runs  agent_runs[]        @relation("run_dispatcher")
+}
+
+model refresh_tokens {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  family_id   String    @db.Uuid
+  token_hash  String    @unique
+  expires_at  DateTime  @db.Timestamptz(6)
+  revoked_at  DateTime? @db.Timestamptz(6)
+  replaced_by String?   @db.Uuid
+  user_agent  String?
+  ip_address  String?   @db.Inet
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+
+  user        users            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  replacement refresh_tokens?  @relation("token_rotation", fields: [replaced_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replaces    refresh_tokens[] @relation("token_rotation")
+
+  @@index([user_id], map: "refresh_tokens_user_idx")
+  @@index([family_id], map: "refresh_tokens_family_idx")
+}
+
+model workspaces {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String    @db.VarChar(100)
+  owner_id   String    @db.Uuid
+  timezone   String    @default("Asia/Jakarta") @db.VarChar(64)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at DateTime? @db.Timestamptz(6)
+
+  owner         users               @relation("workspace_owner", fields: [owner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  members       workspace_members[]
+  agents        agents[]
+  projects      projects[]
+  activity_logs activity_logs[]
+  notifications notifications[]
+  agent_runs    agent_runs[]
+}
+
+model workspace_members {
+  workspace_id String         @db.Uuid
+  user_id      String         @db.Uuid
+  role         workspace_role @default(member)
+  created_at   DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime       @default(now()) @updatedAt @db.Timestamptz(6)
+
+  workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user      users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([workspace_id, user_id])
+  @@index([user_id], map: "workspace_members_user_idx")
+}
+
+model agents {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id  String    @db.Uuid
+  name          String    @db.VarChar(100)
+  handle        String    @db.Citext
+  mcp_agent_key String    @db.VarChar(100)
+  description   String?
+  avatar_url    String?
+  is_active     Boolean   @default(true)
+  created_by    String?   @db.Uuid
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at    DateTime? @db.Timestamptz(6)
+
+  workspace      workspaces   @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  creator        users?       @relation("agent_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assigned_tasks tasks[]      @relation("task_assignee_agent")
+  comments       comments[]   @relation("comment_author_agent")
+  agent_runs     agent_runs[]
+}
+
+model projects {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id String    @db.Uuid
+  title        String    @db.VarChar(200)
+  description  String?
+  icon         String?   @db.VarChar(16)
+  created_by   String?   @db.Uuid
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at   DateTime? @db.Timestamptz(6)
+
+  workspace     workspaces        @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator       users?            @relation("project_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tasks         tasks[]
+  blocks        document_blocks[]
+  comments      comments[]
+  activity_logs activity_logs[]
+  notifications notifications[]
+  agent_runs    agent_runs[]
+}
+
+model tasks {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id        String            @db.Uuid
+  parent_task_id    String?           @db.Uuid
+  depth             Int               @default(1) @db.SmallInt
+  title             String            @db.VarChar(500)
+  status            task_status       @default(todo)
+  priority          task_priority     @default(none)
+  assignee_type     actor_type?
+  assignee_user_id  String?           @db.Uuid
+  assignee_agent_id String?           @db.Uuid
+  start_date        DateTime?         @db.Date
+  end_date          DateTime?         @db.Date
+  is_milestone      Boolean           @default(false)
+  tags              String[]          @default([])
+  order_index       Int               @default(0)
+  agent_status      agent_work_status @default(idle)
+  created_by_type   actor_type        @default(user)
+  created_by_id     String?           @db.Uuid
+  completed_at      DateTime?         @db.Timestamptz(6)
+  created_at        DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at        DateTime?         @db.Timestamptz(6)
+
+  project        projects          @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parent         tasks?            @relation("task_tree", fields: [parent_task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children       tasks[]           @relation("task_tree")
+  assignee_user  users?            @relation("task_assignee_user", fields: [assignee_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignee_agent agents?           @relation("task_assignee_agent", fields: [assignee_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  blocks         document_blocks[]
+  agent_runs     agent_runs[]
+
+  @@index([project_id, status, order_index], map: "tasks_project_idx")
+  @@index([parent_task_id], map: "tasks_parent_idx")
+  @@index([project_id, start_date], map: "tasks_timeline_idx")
+  @@index([assignee_user_id], map: "tasks_assignee_user_idx")
+  @@index([assignee_agent_id], map: "tasks_assignee_agent_idx")
+  @@index([tags], map: "tasks_tags_idx", type: Gin)
+}
+
+model document_blocks {
+  id                  String     @id @db.Uuid
+  project_id          String     @db.Uuid
+  task_id             String?    @db.Uuid
+  parent_block_id     String?    @db.Uuid
+  block_type          String     @db.VarChar(32)
+  content_json        Json       @default("{}")
+  plain_text          String     @default("")
+  order_index         Int
+  version             Int        @default(1)
+  last_edited_by_type actor_type @default(user)
+  last_edited_by_id   String?    @db.Uuid
+  created_at          DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime   @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at          DateTime?  @db.Timestamptz(6)
+  // search_vector tsvector GENERATED (dibuat di migrasi SQL, tidak dimodelkan)
+
+  project  projects          @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task     tasks?            @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parent   document_blocks?  @relation("block_tree", fields: [parent_block_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children document_blocks[] @relation("block_tree")
+}
+
+model comments {
+  id                String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id        String      @db.Uuid
+  entity_type       entity_type
+  entity_id         String      @db.Uuid
+  parent_comment_id String?     @db.Uuid
+  author_type       actor_type
+  author_user_id    String?     @db.Uuid
+  author_agent_id   String?     @db.Uuid
+  content           String
+  mentions          Json        @default("[]")
+  edited_at         DateTime?   @db.Timestamptz(6)
+  created_at        DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime    @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at        DateTime?   @db.Timestamptz(6)
+
+  project      projects   @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parent       comments?  @relation("comment_thread", fields: [parent_comment_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies      comments[] @relation("comment_thread")
+  author_user  users?     @relation("comment_author_user", fields: [author_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  author_agent agents?    @relation("comment_author_agent", fields: [author_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model activity_logs {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id  String      @db.Uuid
+  project_id    String?     @db.Uuid
+  entity_type   entity_type
+  entity_id     String      @db.Uuid
+  action        String      @db.VarChar(64)
+  actor_type    actor_type
+  actor_id      String?     @db.Uuid
+  metadata_json Json        @default("{}")
+  created_at    DateTime    @default(now()) @db.Timestamptz(6)
+
+  workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  project   projects?  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([project_id, created_at(sort: Desc)], map: "activity_project_idx")
+  @@index([entity_type, entity_id, created_at(sort: Desc)], map: "activity_entity_idx")
+}
+
+model notifications {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String       @db.Uuid
+  workspace_id String       @db.Uuid
+  type         String       @db.VarChar(48)
+  title        String       @db.VarChar(200)
+  body         String?
+  project_id   String?      @db.Uuid
+  entity_type  entity_type?
+  entity_id    String?      @db.Uuid
+  actor_type   actor_type?
+  actor_id     String?      @db.Uuid
+  read_at      DateTime?    @db.Timestamptz(6)
+  created_at   DateTime     @default(now()) @db.Timestamptz(6)
+
+  user      users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  project   projects?  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([user_id, created_at(sort: Desc)], map: "notifications_user_idx")
+}
+
+model agent_runs {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id   String            @db.Uuid
+  project_id     String            @db.Uuid
+  task_id        String?           @db.Uuid
+  agent_id       String            @db.Uuid
+  trigger        agent_run_trigger
+  trigger_ref_id String?           @db.Uuid
+  status         agent_run_status  @default(queued)
+  mcp_run_id     String?           @db.VarChar(200)
+  dispatched_by  String?           @db.Uuid
+  attempts       Int               @default(0) @db.SmallInt
+  last_error     Json?
+  last_event_at  DateTime?         @db.Timestamptz(6)
+  started_at     DateTime?         @db.Timestamptz(6)
+  completed_at   DateTime?         @db.Timestamptz(6)
+  created_at     DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime          @default(now()) @updatedAt @db.Timestamptz(6)
+
+  workspace  workspaces           @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  project    projects             @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task       tasks?               @relation(fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  agent      agents               @relation(fields: [agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dispatcher users?               @relation("run_dispatcher", fields: [dispatched_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  events     mcp_webhook_events[]
+}
+
+model mcp_webhook_events {
+  event_id     String    @id @db.Uuid
+  run_id       String?   @db.Uuid
+  event_type   String    @db.VarChar(64)
+  status       String    @default("processing") @db.VarChar(16)
+  error        Json?
+  received_at  DateTime  @default(now()) @db.Timestamptz(6)
+  processed_at DateTime? @db.Timestamptz(6)
+
+  run agent_runs? @relation(fields: [run_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
