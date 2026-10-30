@@ -3,6 +3,7 @@ import { Navigate, Outlet, useParams } from 'react-router';
 import { useWorkspaces } from '../../hooks/queries';
 import { useUi } from '../../lib/ui-store';
 import { RealtimeBridge } from '../collab/RealtimeBridge';
+import { ProductTour } from '../tour/ProductTour';
 import { IconButton } from '../ui/button';
 import { FullPageSpinner } from '../ui/misc';
 import { Sidebar } from './Sidebar';
@@ -19,6 +20,7 @@ export function AppLayout() {
   return (
     <div className="flex h-full">
       <RealtimeBridge />
+      <ProductTour workspaceId={ws.id} />
       {sidebarOpen && <Sidebar workspaceId={ws.id} role={ws.role} />}
       <main className="relative flex min-w-0 flex-1 flex-col">
         {!sidebarOpen && (

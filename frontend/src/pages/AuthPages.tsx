@@ -18,7 +18,7 @@ function AuthShell({ title, children }: { title: string; children: React.ReactNo
         <div className="mb-6 text-center">
           <div className="mb-2 text-4xl">📋</div>
           <h1 className="text-2xl font-bold">{title}</h1>
-          <p className="mt-1 text-[13px] text-ink-soft">Matrika Dashboard — Agentic Project Management</p>
+          <p className="mt-1 text-[13px] text-ink-soft">Marketing Dashboard — Agentic Project Management</p>
         </div>
         <div className="rounded-xl border border-line bg-white p-6 shadow-sm">{children}</div>
       </div>

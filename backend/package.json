@@ -1,5 +1,5 @@
 {
-  "name": "matrika-dashboard-backend",
+  "name": "marketing-dashboard-backend",
   "version": "0.1.0",
   "private": true,
   "description": "Backend Modul 1 - Agentic Project Management (NestJS + Prisma + PostgreSQL)",
@@ -62,7 +62,7 @@
     "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
     "concurrently": "10.0.6",
-    "jest": "30.5.2",
+    "jest": "^25.1.0",
     "pino-pretty": "13.2.0",
     "prettier": "3.9.10",
     "typescript": "7.0.2"

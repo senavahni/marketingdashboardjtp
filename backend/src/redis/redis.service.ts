@@ -15,7 +15,7 @@ export class RedisService implements OnModuleDestroy {
   /** Membuat koneksi baru (BullMQ & Socket.IO adapter butuh koneksi terpisah). */
   createConnection(name: string, opts: { forBullmq?: boolean } = {}): Redis {
     const conn = new Redis(this.config.env.REDIS_URL, {
-      connectionName: `matrika-${name}`,
+      connectionName: `marketing-${name}`,
       maxRetriesPerRequest: opts.forBullmq ? null : 3,
       lazyConnect: false,
     });

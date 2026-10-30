@@ -1,4 +1,4 @@
-# Matrika Dashboard Marketing — docker compose
+# Marketing Dashboard — docker compose
 #
 #   docker compose up -d --build     → backend + frontend (web: http://localhost:${DOCKER_WEB_PORT:-8088})
 #
@@ -6,12 +6,12 @@
 # (mis. container postgres_db & redis_secure) melalui host.docker.internal.
 # Hanya frontend (nginx) yang diekspos; nginx meneruskan /api, /socket.io, /health ke backend lewat jaringan internal docker.
 # Semua konfigurasi dibaca dari satu file .env di root.
-name: matrika-dashboard
+name: marketing-dashboard
 
 services:
   backend:
     build: { context: ., dockerfile: Dockerfile.backend }
-    container_name: matrika_backend
+    container_name: marketing_backend
     env_file: .env
     environment:
       NODE_ENV: production
@@ -33,7 +33,7 @@ services:
       dockerfile: Dockerfile.frontend
       args:
         VITE_FEATURE_AI_PROMPT_BLOCK: ${VITE_FEATURE_AI_PROMPT_BLOCK:-false}
-    container_name: matrika_frontend
+    container_name: marketing_frontend
     ports: ['${DOCKER_WEB_PORT:-8088}:80']
     depends_on:
       backend: { condition: service_healthy }

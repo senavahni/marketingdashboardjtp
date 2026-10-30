@@ -35,6 +35,6 @@ export const useUi = create<UiState>()(
       setBoardSubtasks: (boardSubtasks) => set({ boardSubtasks }),
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
     }),
-    { name: 'matrika-ui' },
+    { name: 'marketing-ui' },
   ),
 );

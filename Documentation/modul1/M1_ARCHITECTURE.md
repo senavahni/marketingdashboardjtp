@@ -256,7 +256,7 @@ Worker berjalan di proses yang sama dengan API untuk M1 (bisa dipisah dengan env
 | `PORT` | `3000` | |
 | `APP_URL` | `http://localhost:5173` | Origin frontend (CORS & Socket.IO), boleh dipisah koma |
 | `PUBLIC_API_URL` | `http://localhost:3000` | Dipakai menyusun `callback_url` webhook untuk MCP |
-| `DATABASE_URL` | `postgresql://matrika:matrika@localhost:5432/matrika_m1` | |
+| `DATABASE_URL` | `postgresql://marketing:marketing@localhost:5432/marketing_m1` | |
 | `REDIS_URL` | `redis://localhost:6379` | |
 | `JWT_ACCESS_SECRET` | *(random 64 byte)* | Wajib ≥ 32 karakter |
 | `JWT_ACCESS_TTL` | `15m` | |
@@ -326,7 +326,7 @@ Alternatif semua di Docker: `docker compose --profile full up --build`.
 
 **Akun demo hasil seed** (password = `SEED_DEMO_PASSWORD`):
 
-| Email | Role di workspace "Matrika Demo" |
+| Email | Role di workspace "Marketing Demo" |
 |---|---|
 | `owner@demo.local` | Owner |
 | `manager@demo.local` | Admin (Marketing Manager di UC4) |
@@ -344,13 +344,13 @@ services:
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_USER: matrika
-      POSTGRES_PASSWORD: matrika
-      POSTGRES_DB: matrika_m1
+      POSTGRES_USER: marketing
+      POSTGRES_PASSWORD: marketing
+      POSTGRES_DB: marketing_m1
     ports: ["5432:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U matrika"]
+      test: ["CMD-SHELL", "pg_isready -U marketing"]
       interval: 5s
       retries: 10
   redis:
@@ -361,7 +361,7 @@ services:
     build: { context: ., dockerfile: docker/api.Dockerfile }
     env_file: apps/api/.env
     environment:
-      DATABASE_URL: postgresql://matrika:matrika@postgres:5432/matrika_m1
+      DATABASE_URL: postgresql://marketing:marketing@postgres:5432/marketing_m1
       REDIS_URL: redis://redis:6379
       MCP_SERVER_URL: http://mock-mcp:4100/mcp
       PUBLIC_API_URL: http://api:3000
