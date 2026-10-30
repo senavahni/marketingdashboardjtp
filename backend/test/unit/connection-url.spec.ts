@@ -12,6 +12,6 @@ describe('URL koneksi dari .env', () => {
   });
 
   it('Postgres: dari variabel terpisah', () => {
-    expect(buildDatabaseUrl({ POSTGRES_USER: 'u', POSTGRES_PASSWORD: 'p#1', POSTGRES_HOST: 'h' })).toBe('postgresql://u:p%231@h:5432/matrika_dashboard');
+    expect(buildDatabaseUrl({ POSTGRES_USER: 'u', POSTGRES_PASSWORD: 'p#1', POSTGRES_HOST: 'h' })).toBe('postgresql://u:p%231@h:5432/marketing_dashboard');
   });
 });

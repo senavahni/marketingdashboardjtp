@@ -294,7 +294,7 @@ CREATE TABLE mcp_webhook_events (
 - Kolom polimorfik (`created_by_id`, `last_edited_by_id`, `actor_id`) tidak memakai FK; integritas dijaga di service layer.
 
 ### B.3 Seed Data
-- [ ] `prisma/seed.ts` idempotent (bisa dijalankan ulang). Isi persis sesuai [ARCHITECTURE §10](M1_ARCHITECTURE.md#10-menjalankan-modul-1-secara-lokal): 5 user demo, workspace "Matrika Demo" + "Outsider WS", 2 agent, project "Q4 Product Launch" (task "Market Research" 1–5 Nov tahun berjalan + 2 subtask, milestone "Launch Day"), 3 blok Project Brief (heading "Brief Kampanye Q4", paragraf target audiens, paragraf tone of voice).
+- [ ] `prisma/seed.ts` idempotent (bisa dijalankan ulang). Isi persis sesuai [ARCHITECTURE §10](M1_ARCHITECTURE.md#10-menjalankan-modul-1-secara-lokal): 5 user demo, workspace "Marketing Demo" + "Outsider WS", 2 agent, project "Q4 Product Launch" (task "Market Research" 1–5 Nov tahun berjalan + 2 subtask, milestone "Launch Day"), 3 blok Project Brief (heading "Brief Kampanye Q4", paragraf target audiens, paragraf tone of voice).
 - [ ] Seed **ditolak** jika `NODE_ENV=production`.
 
 ## C. Security & Auth

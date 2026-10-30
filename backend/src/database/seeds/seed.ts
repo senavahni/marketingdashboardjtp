@@ -35,8 +35,8 @@ async function main(): Promise<void> {
 
   await prisma.workspaces.upsert({
     where: { id: SEED_IDS.wsDemo },
-    create: { id: SEED_IDS.wsDemo, name: 'Matrika Demo', owner_id: SEED_IDS.owner },
-    update: {},
+    create: { id: SEED_IDS.wsDemo, name: 'Marketing Demo', owner_id: SEED_IDS.owner },
+    update: { name: 'Marketing Demo' },
   });
   await prisma.workspaces.upsert({
     where: { id: SEED_IDS.wsOutsider },

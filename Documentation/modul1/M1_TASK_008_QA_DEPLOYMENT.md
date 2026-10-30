@@ -41,7 +41,7 @@ Memastikan Modul 1 stabil, aman, dan siap digunakan sebelum Modul 2 dikerjakan.
 
 - [ ] **Security Testing:**
     - Test XSS pada Block Editor (coba inject `<script>`): payload list minimal — `<script>alert(1)</script>`, `<img src=x onerror=alert(1)>`, `javascript:alert(1)` sebagai link/image/bookmark URL, `data:text/html,...`, properti `onClick` di `content_json`, payload di judul task, komentar, nama agent, dan dari webhook agent. Ekspektasi: ditolak atau tampil sebagai teks, tidak ada eksekusi script (cek via Playwright `page.on('dialog')`).
-    - Test IDOR (Insecure Direct Object Reference) - pastikan User A tidak bisa akses Project User B: suite otomatis yang menjalankan **setiap endpoint** (GET/POST/PATCH/DELETE, termasuk blocks, comments, activity, timeline, agent-run, room Socket.IO) dengan token `outsider@demo.local` terhadap resource "Matrika Demo" → wajib 404; dengan token Viewer untuk aksi tulis → wajib 403.
+    - Test IDOR (Insecure Direct Object Reference) - pastikan User A tidak bisa akses Project User B: suite otomatis yang menjalankan **setiap endpoint** (GET/POST/PATCH/DELETE, termasuk blocks, comments, activity, timeline, agent-run, room Socket.IO) dengan token `outsider@demo.local` terhadap resource "Marketing Demo" → wajib 404; dengan token Viewer untuk aksi tulis → wajib 403.
     - Auth: token tanpa signature/`alg: none`, token expired, refresh token reuse, brute force login (rate limit), cookie flags (`HttpOnly`, `Secure`, `SameSite`).
     - Webhook & Agent API: signature salah, timestamp kedaluwarsa (replay), `event_id` duplikat, run milik project lain, run dibatalkan, service token salah.
     - OWASP ZAP baseline scan ke staging; `pnpm audit --prod` & Trivy scan image Docker (0 Critical/High yang bisa diperbaiki).

@@ -88,7 +88,7 @@ export function ProjectPage() {
         </div>
         <div className={cn('flex min-h-0 flex-1 flex-col px-12', view === 'brief' && 'overflow-y-auto')}>
           {/* Header halaman */}
-          <div className="pt-6">
+          <div data-tour="project-header" className="pt-6">
             <Popover
               trigger={
                 <button disabled={!canEdit} className="mb-2 rounded-lg p-1 text-5xl leading-none enabled:hover:bg-hover" aria-label="Ubah ikon">
@@ -117,17 +117,19 @@ export function ProjectPage() {
 
           {/* Tab view + aksi */}
           <div className="flex items-center gap-1 border-b border-line">
-            {VIEWS.map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setParam('view', key)}
-                className={cn('-mb-px inline-flex items-center gap-1.5 border-b-2 px-2 py-2 text-[14px]', view === key ? 'border-ink text-ink' : 'border-transparent text-ink-soft hover:text-ink')}
-              >
-                <Icon size={15} /> {label}
-              </button>
-            ))}
+            <div data-tour="views" className="flex items-center gap-1">
+              {VIEWS.map(({ key, label, icon: Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setParam('view', key)}
+                  className={cn('-mb-px inline-flex items-center gap-1.5 border-b-2 px-2 py-2 text-[14px]', view === key ? 'border-ink text-ink' : 'border-transparent text-ink-soft hover:text-ink')}
+                >
+                  <Icon size={15} /> {label}
+                </button>
+              ))}
+            </div>
             {view !== 'brief' && (
-              <div className="ml-auto flex items-center gap-1 pb-1">
+              <div data-tour="toolbar" className="ml-auto flex items-center gap-1 pb-1">
                 <div className="flex items-center gap-1 rounded px-1.5 text-ink-faint focus-within:bg-hover">
                   <Search size={14} />
                   <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari…" className="w-28 bg-transparent py-1 text-[13px] text-ink outline-none focus:w-40" />
@@ -149,7 +151,7 @@ export function ProjectPage() {
           </div>
 
           {/* Konten view */}
-          <div className={cn('flex min-h-0 flex-1 flex-col pt-3', view !== 'brief' && 'pb-4')}>
+          <div data-tour="view-content" className={cn('flex min-h-0 flex-1 flex-col pt-3', view !== 'brief' && 'pb-4')}>
             {view === 'brief' && (
               <div className="max-w-[900px] pb-24">
                 <p className="mb-6 text-[13px] text-ink-faint">Dokumen brief project — konteks utama yang dibaca AI Agent. Ketik “/” untuk memilih blok, “@” untuk mention.</p>

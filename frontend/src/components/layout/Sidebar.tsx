@@ -1,4 +1,4 @@
-import { Bot, ChevronsUpDown, House, LogOut, MoreHorizontal, PanelLeftClose, Plus, Settings, Trash2 } from 'lucide-react';
+import { Bot, ChevronsUpDown, GraduationCap, House, LogOut, MoreHorizontal, PanelLeftClose, Plus, Settings, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, useNavigate, useParams } from 'react-router';
 import { useAgents, useCreateProject, useDeleteProject, useProjects, useWorkspaces } from '../../hooks/queries';
@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth-store';
 import { queryClient } from '../../lib/query-client';
 import { disconnectSocket } from '../../lib/realtime';
+import { useTour } from '../../lib/tour-store';
 import type { Role } from '../../lib/types';
 import { useUi } from '../../lib/ui-store';
 import { cn } from '../../lib/utils';
@@ -25,6 +26,7 @@ export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role
   const createProject = useCreateProject(workspaceId);
   const deleteProject = useDeleteProject(workspaceId);
   const toggleSidebar = useUi((s) => s.toggleSidebar);
+  const startTour = useTour((s) => s.start);
   const [settings, setSettings] = useState(false);
   const current = workspaces?.find((w) => w.id === workspaceId);
   const canEdit = role !== 'viewer';
@@ -54,7 +56,7 @@ export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role
         <Popover
           className="w-64"
           trigger={
-            <button className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1.5 hover:bg-hover">
+            <button data-tour="workspace" className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1.5 hover:bg-hover">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-stone-700 text-[11px] font-semibold text-white">{current?.name?.[0]?.toUpperCase() ?? 'W'}</span>
               <span className="truncate font-medium">{current?.name ?? 'Workspace'}</span>
               <ChevronsUpDown size={13} className="ml-auto shrink-0 text-ink-faint" />
@@ -83,61 +85,75 @@ export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role
       </div>
 
       <nav className="space-y-0.5 px-2">
-        <NavLink to={`/w/${workspaceId}`} end className={({ isActive }) => cn('flex items-center gap-2 rounded px-2 py-1 text-ink-soft hover:bg-hover', isActive && 'bg-hover text-ink')}>
+        <NavLink
+          to={`/w/${workspaceId}`}
+          end
+          data-tour="nav-home"
+          className={({ isActive }) => cn('flex items-center gap-2 rounded px-2 py-1 text-ink-soft hover:bg-hover', isActive && 'bg-hover text-ink')}
+        >
           <House size={16} /> Beranda
         </NavLink>
-        <Inbox />
-        <button onClick={() => setSettings(true)} className="flex w-full items-center gap-2 rounded px-2 py-1 text-ink-soft hover:bg-hover">
+        <div data-tour="inbox">
+          <Inbox />
+        </div>
+        <button data-tour="settings" onClick={() => setSettings(true)} className="flex w-full items-center gap-2 rounded px-2 py-1 text-ink-soft hover:bg-hover">
           <Settings size={16} /> Pengaturan
+        </button>
+        <button data-tour="tutorial" onClick={startTour} className="flex w-full items-center gap-2 rounded px-2 py-1 text-ink-soft hover:bg-hover">
+          <GraduationCap size={16} /> Tutorial
         </button>
       </nav>
 
       <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-2">
-        <div className="group/section flex items-center justify-between px-2 py-1 text-[12px] font-medium text-ink-faint">
-          Proyek
-          {canEdit && (
-            <IconButton label="Proyek baru" onClick={newProject} className="opacity-0 group-hover/section:opacity-100">
-              <Plus size={14} />
-            </IconButton>
-          )}
-        </div>
-        {projects?.map((p) => (
-          <div key={p.id} className={cn('group/item flex items-center rounded hover:bg-hover', p.id === projectId && 'bg-hover')}>
-            <NavLink to={`/w/${workspaceId}/p/${p.id}`} className={cn('flex min-w-0 flex-1 items-center gap-2 px-2 py-1', p.id === projectId ? 'font-medium text-ink' : 'text-ink-soft')}>
-              <span className="w-5 shrink-0 text-center">{p.icon || '📄'}</span>
-              <span className="truncate">{p.title}</span>
-            </NavLink>
+        <div data-tour="projects">
+          <div className="group/section flex items-center justify-between px-2 py-1 text-[12px] font-medium text-ink-faint">
+            Proyek
             {canEdit && (
-              <Popover align="start" trigger={<IconButton label="Opsi" className="mr-1 opacity-0 group-hover/item:opacity-100"><MoreHorizontal size={14} /></IconButton>}>
-                <MenuItem
-                  danger
-                  onSelect={() =>
-                    confirm(`Hapus proyek "${p.title}" beserta seluruh isinya?`) &&
-                    deleteProject.mutate(p.id, { onSuccess: () => p.id === projectId && navigate(`/w/${workspaceId}`) })
-                  }
-                >
-                  <Trash2 size={14} /> Hapus proyek
-                </MenuItem>
-              </Popover>
+              <IconButton label="Proyek baru" onClick={newProject} className="opacity-0 group-hover/section:opacity-100">
+                <Plus size={14} />
+              </IconButton>
             )}
           </div>
-        ))}
-        {canEdit && (
-          <button onClick={newProject} className="flex w-full items-center gap-2 rounded px-2 py-1 text-ink-faint hover:bg-hover">
-            <Plus size={16} /> Proyek baru
-          </button>
-        )}
-
-        <div className="mt-4 flex items-center gap-1 px-2 py-1 text-[12px] font-medium text-ink-faint">
-          <Bot size={12} /> AI Agents
+          {projects?.map((p) => (
+            <div key={p.id} className={cn('group/item flex items-center rounded hover:bg-hover', p.id === projectId && 'bg-hover')}>
+              <NavLink to={`/w/${workspaceId}/p/${p.id}`} className={cn('flex min-w-0 flex-1 items-center gap-2 px-2 py-1', p.id === projectId ? 'font-medium text-ink' : 'text-ink-soft')}>
+                <span className="w-5 shrink-0 text-center">{p.icon || '📄'}</span>
+                <span className="truncate">{p.title}</span>
+              </NavLink>
+              {canEdit && (
+                <Popover align="start" trigger={<IconButton label="Opsi" className="mr-1 opacity-0 group-hover/item:opacity-100"><MoreHorizontal size={14} /></IconButton>}>
+                  <MenuItem
+                    danger
+                    onSelect={() =>
+                      confirm(`Hapus proyek "${p.title}" beserta seluruh isinya?`) &&
+                      deleteProject.mutate(p.id, { onSuccess: () => p.id === projectId && navigate(`/w/${workspaceId}`) })
+                    }
+                  >
+                    <Trash2 size={14} /> Hapus proyek
+                  </MenuItem>
+                </Popover>
+              )}
+            </div>
+          ))}
+          {canEdit && (
+            <button onClick={newProject} className="flex w-full items-center gap-2 rounded px-2 py-1 text-ink-faint hover:bg-hover">
+              <Plus size={16} /> Proyek baru
+            </button>
+          )}
         </div>
-        {agents?.map((a) => (
-          <div key={a.id} title={a.description ?? ''} className={cn('flex items-center gap-2 rounded px-2 py-1 text-ink-soft', !a.is_active && 'opacity-50')}>
-            <ActorAvatar type="agent" name={a.name} size={18} />
-            <span className="truncate">{a.name}</span>
-            {!a.is_active && <span className="ml-auto text-[10px]">nonaktif</span>}
+
+        <div data-tour="agents" className="mt-4">
+          <div className="flex items-center gap-1 px-2 py-1 text-[12px] font-medium text-ink-faint">
+            <Bot size={12} /> AI Agents
           </div>
-        ))}
+          {agents?.map((a) => (
+            <div key={a.id} title={a.description ?? ''} className={cn('flex items-center gap-2 rounded px-2 py-1 text-ink-soft', !a.is_active && 'opacity-50')}>
+              <ActorAvatar type="agent" name={a.name} size={18} />
+              <span className="truncate">{a.name}</span>
+              {!a.is_active && <span className="ml-auto text-[10px]">nonaktif</span>}
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="flex items-center gap-2 border-t border-line p-3 text-[13px]">

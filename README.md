@@ -1,4 +1,4 @@
-# Matrika Dashboard Marketing — Modul 1: Agentic Project Management
+# Marketing Dashboard — Modul 1: Agentic Project Management
 
 Ruang kerja proyek ala **Notion** (halaman, block editor, database view Tabel/Board/Timeline, side peek) yang
 menjadikan **AI Agent** sebagai anggota tim. Agent dijalankan oleh Custom MCP Server (Project 2).
@@ -25,7 +25,7 @@ Isi di `.env`:
 
 | Variabel | Keterangan |
 |---|---|
-| `POSTGRES_USER`, `POSTGRES_PASSWORD` (+ `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`) | Koneksi PostgreSQL. Database `matrika_dashboard` dibuat otomatis jika belum ada |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD` (+ `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`) | Koneksi PostgreSQL. Database `marketing_dashboard` dibuat otomatis jika belum ada |
 | `REDIS_USERNAME`, `REDIS_PASSWORD` (+ `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`) | Koneksi Redis (user ACL `redis_secure`). Kosongkan user/password jika Redis tanpa auth |
 | `JWT_ACCESS_SECRET`, `MCP_SERVER_API_KEY`, `MCP_WEBHOOK_SECRET`, `MCP_SERVICE_TOKEN` | Secret acak ≥ 32 karakter: `openssl rand -base64 48` |
 
@@ -101,7 +101,7 @@ Build produksi tanpa Docker: `cd backend && npm run build && npm run start:prod`
 
 Password semua akun = `SEED_DEMO_PASSWORD` (default `Demo12345!`).
 
-| Email | Peran di workspace "Matrika Demo" |
+| Email | Peran di workspace "Marketing Demo" |
 |---|---|
 | `owner@demo.local` | Owner |
 | `manager@demo.local` | Admin |

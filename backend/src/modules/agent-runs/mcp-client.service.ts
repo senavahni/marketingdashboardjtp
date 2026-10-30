@@ -31,7 +31,7 @@ export class McpClientService {
   constructor(private readonly config: AppConfigService) {}
 
   async callTool(name: McpToolName, args: Record<string, unknown>, timeoutMs: number): Promise<unknown> {
-    const client = new Client({ name: 'matrika-dashboard', version: '0.1.0' });
+    const client = new Client({ name: 'marketing-dashboard', version: '0.1.0' });
     const transport = new StreamableHTTPClientTransport(new URL(this.config.env.MCP_SERVER_URL), {
       requestInit: { headers: { Authorization: `Bearer ${this.config.env.MCP_SERVER_API_KEY}` } },
     });

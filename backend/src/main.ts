@@ -33,7 +33,7 @@ async function bootstrap(): Promise<void> {
 
   if (config.env.SWAGGER_ENABLED) {
     const doc = new DocumentBuilder()
-      .setTitle('Matrika Dashboard API — Modul 1')
+      .setTitle('Marketing Dashboard API — Modul 1')
       .setDescription('Agentic Project Management. Kontrak: Documentation/modul1/*.md')
       .setVersion('0.1.0')
       .addBearerAuth()
