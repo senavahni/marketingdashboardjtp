@@ -117,6 +117,29 @@ export function useCreateTask(projectId: string) {
   });
 }
 
+export interface DuplicateTaskBody {
+  title?: string;
+  subtasks: 'all' | 'selected' | 'none';
+  subtask_ids?: string[];
+  timeline: 'same' | 'shift' | 'none';
+  start_date?: string;
+  copy_assignee: boolean;
+  copy_content: boolean;
+}
+
+/** Salin task/subtask beserta turunan terpilih (salinan muncul tepat setelah aslinya). */
+export function useDuplicateTask(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: DuplicateTaskBody }) =>
+      api<{ task: Task; created_count: number }>(`/tasks/${id}/duplicate`, { method: 'POST', body }),
+    onSuccess: ({ task }) => {
+      qc.invalidateQueries({ queryKey: qk.tasks(projectId) });
+      if (task.parent_task_id) qc.invalidateQueries({ queryKey: qk.task(task.parent_task_id) });
+    },
+  });
+}
+
 export function useDeleteTask(projectId: string) {
   const qc = useQueryClient();
   return useMutation({

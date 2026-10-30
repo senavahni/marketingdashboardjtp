@@ -1,4 +1,4 @@
-import { Bot, Calendar, ChevronRight, CircleDot, Flag, Link as LinkIcon, Maximize2, MoreHorizontal, Plus, RotateCcw, Square, Tag, Trash2, User, UserPen, X } from 'lucide-react';
+import { Bot, Calendar, ChevronRight, CircleDot, Copy, Flag, Link as LinkIcon, Maximize2, MoreHorizontal, Plus, RotateCcw, Square, Tag, Trash2, User, UserPen, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ import { ActorName } from '../ui/avatar';
 import { IconButton } from '../ui/button';
 import { AgentStatusBadge, EmptyState, FullPageSpinner, StatusChip } from '../ui/misc';
 import { MenuItem, Popover } from '../ui/popover';
+import { DuplicateTaskDialog } from './DuplicateTaskDialog';
 import { AssigneeEditor, DateEditor, PriorityEditor, StatusEditor, TagsEditor } from './property-editors';
 
 interface Props {
@@ -41,6 +42,7 @@ function TaskBody({ task, workspaceId, role, mode, onClose, onOpenTask }: Omit<P
   const del = useDeleteTask(task.project_id);
   const runAction = useAgentRunAction(task.project_id);
   const [tab, setTab] = useState<'comments' | 'activity'>('comments');
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
   const patch = (p: Parameters<typeof update.mutate>[0]['patch']) => update.mutate({ id: task.id, patch: p });
 
   const fullUrl = `/w/${workspaceId}/t/${task.id}`;
@@ -80,14 +82,19 @@ function TaskBody({ task, workspaceId, role, mode, onClose, onOpenTask }: Omit<P
           <IconButton
             label="Salin link"
             onClick={() => {
-              void navigator.clipboard.writeText(`${location.origin}${fullUrl}`);
-              toast.success('Link disalin');
+              const link = `${location.origin}${fullUrl}`;
+              // navigator.clipboard tidak tersedia di http://IP-LAN (bukan secure context)
+              if (navigator.clipboard) void navigator.clipboard.writeText(link).then(() => toast.success('Link disalin'));
+              else prompt('Salin link berikut:', link);
             }}
           >
             <LinkIcon size={14} />
           </IconButton>
           {canEdit && (
             <Popover align="end" trigger={<IconButton label="Lainnya"><MoreHorizontal size={16} /></IconButton>}>
+              <MenuItem onSelect={() => setDuplicateOpen(true)}>
+                <Copy size={14} /> {task.parent_task_id ? 'Salin subtask' : 'Salin task'}
+              </MenuItem>
               <MenuItem
                 danger
                 onSelect={() => {
@@ -99,6 +106,7 @@ function TaskBody({ task, workspaceId, role, mode, onClose, onOpenTask }: Omit<P
               </MenuItem>
             </Popover>
           )}
+          {canEdit && <DuplicateTaskDialog task={task} open={duplicateOpen} onOpenChange={setDuplicateOpen} onDone={(copy) => onOpenTask(copy.id)} />}
         </div>
       </div>
 

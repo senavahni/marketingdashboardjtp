@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Calendar, ChevronRight, CircleDot, Flag, Hash, Maximize2, Plus, Tag, Trash2, Type, User } from 'lucide-react';
+import { Calendar, ChevronRight, CircleDot, Copy, Flag, Hash, Maximize2, Plus, Tag, Trash2, Type, User } from 'lucide-react';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useCreateTask, useDeleteTask, useUpdateTask } from '../../hooks/queries';
 import { formatRange } from '../../lib/dates';
@@ -8,6 +8,7 @@ import { visibleRows } from '../../lib/task-tree';
 import type { Task, TaskStatus } from '../../lib/types';
 import { useUi } from '../../lib/ui-store';
 import { cn } from '../../lib/utils';
+import { DuplicateTaskDialog } from '../task/DuplicateTaskDialog';
 import { AgentStatusBadge, EmptyState } from '../ui/misc';
 import { Popover, MenuItem } from '../ui/popover';
 import { AssigneeEditor, DateEditor, PriorityEditor, StatusEditor, TagsEditor } from '../task/property-editors';
@@ -34,6 +35,7 @@ export function TableView({ tasks }: { tasks: Task[] }) {
   const del = useDeleteTask(projectId);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [newTitle, setNewTitle] = useState<string | null>(null);
+  const [duplicating, setDuplicating] = useState<Task | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const virt = useVirtualizer({ count: rows.length, getScrollElement: () => scrollRef.current, estimateSize: () => ROW_H, overscan: 12 });
 
@@ -149,9 +151,21 @@ export function TableView({ tasks }: { tasks: Task[] }) {
                         {t.subtask_count}
                       </span>
                     )}
+                    {canEdit && (
+                      <button
+                        onClick={() => setDuplicating(t)}
+                        title={t.parent_task_id ? 'Salin subtask' : 'Salin task'}
+                        className="ml-auto hidden shrink-0 items-center gap-1 rounded border border-line bg-white px-1.5 py-0.5 text-[11px] font-medium text-ink-soft shadow-sm group-hover:inline-flex"
+                      >
+                        <Copy size={11} /> SALIN
+                      </button>
+                    )}
                     <button
                       onClick={() => openTask(t.id)}
-                      className="ml-auto hidden shrink-0 items-center gap-1 rounded border border-line bg-white px-1.5 py-0.5 text-[11px] font-medium text-ink-soft shadow-sm group-hover:inline-flex"
+                      className={cn(
+                        'hidden shrink-0 items-center gap-1 rounded border border-line bg-white px-1.5 py-0.5 text-[11px] font-medium text-ink-soft shadow-sm group-hover:inline-flex',
+                        canEdit ? 'ml-1' : 'ml-auto',
+                      )}
                     >
                       <Maximize2 size={11} /> BUKA
                     </button>
@@ -203,6 +217,14 @@ export function TableView({ tasks }: { tasks: Task[] }) {
           <div className="h-2 text-[12px] text-ink-faint" />
         </div>
       </div>
+      {duplicating && (
+        <DuplicateTaskDialog
+          task={duplicating}
+          open
+          onOpenChange={(o) => !o && setDuplicating(null)}
+          onDone={() => duplicating.parent_task_id && !expandedSet.has(duplicating.parent_task_id) && toggleExpanded(projectId, duplicating.parent_task_id)}
+        />
+      )}
     </div>
   );
 }

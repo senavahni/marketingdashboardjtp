@@ -22,6 +22,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "node dist/database/seeds/seed.js",
     "db:seed:large": "node dist/database/seeds/seed-large.js",
+    "db:seed:dummy": "node dist/database/seeds/seed-dummy.js",
     "db:setup": "npm run build && node dist/scripts/create-database.js && prisma migrate deploy && node dist/database/seeds/seed.js",
     "mcp:send-event": "node dist/scripts/send-mcp-event.js"
   },

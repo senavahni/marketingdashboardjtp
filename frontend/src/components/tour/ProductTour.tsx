@@ -102,7 +102,8 @@ const STEPS: TourStep[] = [
     body: (
       <>
         Klik judul task untuk membukanya di <b>side peek</b> (panel kanan; <K>Esc</K> menutup, ⤢ membuka halaman penuh). Klik sel Status, Assignee, Tanggal,
-        Prioritas, atau Tag untuk mengubahnya langsung. Task yang punya subtask bisa di-expand, dan lebar kolom bisa ditarik.
+        Prioritas, atau Tag untuk mengubahnya langsung. Task yang punya subtask bisa di-expand, dan lebar kolom bisa ditarik. Arahkan kursor ke baris lalu
+        klik <b>SALIN</b> untuk menduplikasi task beserta subtask & timeline-nya.
       </>
     ),
   },

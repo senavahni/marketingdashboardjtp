@@ -6,7 +6,7 @@ import { ClientId, CurrentUser } from '../../common/decorators/current-user.deco
 import { UuidPipe } from '../../common/pipes/uuid-param.pipe';
 import { ZodPipe } from '../../common/pipes/zod-validation.pipe';
 import { AuthUser } from '../../common/types/request.types';
-import { createTaskSchema, listTasksQuery, moveTaskSchema, reorderTasksSchema, updateTaskSchema } from './tasks.schemas';
+import { createTaskSchema, duplicateTaskSchema, listTasksQuery, moveTaskSchema, reorderTasksSchema, updateTaskSchema } from './tasks.schemas';
 import { TasksService } from './tasks.service';
 
 @ApiTags('Tasks')
@@ -70,6 +70,17 @@ export class TasksController {
     @Body(new ZodPipe(createTaskSchema)) body: z.infer<typeof createTaskSchema>,
   ) {
     return this.tasks.create(user, '', parentId, body, clientId);
+  }
+
+  @Post('tasks/:id/duplicate')
+  @ApiZodBody(duplicateTaskSchema)
+  duplicate(
+    @CurrentUser() user: AuthUser,
+    @ClientId() clientId: string | null,
+    @Param('id', UuidPipe) id: string,
+    @Body(new ZodPipe(duplicateTaskSchema)) body: z.infer<typeof duplicateTaskSchema>,
+  ) {
+    return this.tasks.duplicate(user, id, body, clientId);
   }
 
   @Patch('tasks/:id/move')

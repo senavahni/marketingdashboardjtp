@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { ErrorCode } from '../../common/constants/error-codes';
 import { TASK_STATUSES } from '../../common/constants/domain';
 import { Errors } from '../../common/exceptions/app.exception';
@@ -6,7 +7,7 @@ import { Actor, AuthUser, userActor } from '../../common/types/request.types';
 import { PrismaService, Tx } from '../../database/prisma.service';
 import { Prisma, task_priority, task_status, tasks } from '../../generated/prisma/client';
 import { AfterCommit } from '../../utils/helpers/after-commit';
-import { fromDateString, toDateString } from '../../utils/helpers/date.util';
+import { addDays, diffDays, fromDateString, toDateString } from '../../utils/helpers/date.util';
 import { decodeCursor, toPage } from '../../utils/helpers/pagination.util';
 import { ActivityService } from '../activity/activity.service';
 import { AgentRunsService } from '../agent-runs/agent-runs.service';
@@ -18,7 +19,7 @@ import { subtreeHeight, TaskHierarchy } from './task-hierarchy.repository';
 import { TaskReaderService } from './task-reader.service';
 import { taskInclude } from './task.mapper';
 import { assertMoveDepth, childDepth, normalizeSchedule, uniqueTags } from './task.rules';
-import { CreateTaskInput, ListTasksQuery, UpdateTaskInput } from './tasks.schemas';
+import { CreateTaskInput, DuplicateTaskInput, ListTasksQuery, UpdateTaskInput } from './tasks.schemas';
 
 export interface CreateTaskParams {
   workspaceId: string;
@@ -327,6 +328,170 @@ export class TasksService {
       this.realtime.toProjectAndTask(task.project_id, taskId, RealtimeEvent.TASK_DELETED, { task_id: taskId, deleted_ids: deletedIds }, { actor, originClientId: clientId }),
     );
     await effects.run();
+  }
+
+  // ================= Duplicate =================
+
+  /**
+   * Salin task beserta turunan terpilih ke parent yang sama (tepat setelah aslinya).
+   * Salinan selalu berstatus To Do. Assignee AI Agent tidak disalin agar agent tidak otomatis bekerja.
+   * Subtask yang parent-nya tidak dipilih ditempel ke leluhur terdekat yang ikut disalin.
+   */
+  async duplicate(user: AuthUser, taskId: string, input: DuplicateTaskInput, clientId: string | null) {
+    const { task, workspace } = await this.access.assertTask(user.id, taskId, 'member');
+    const actor = userActor(user);
+    const effects = new AfterCommit();
+    const rootTitle = (input.title ?? `${task.title} (salinan)`).slice(0, 500);
+
+    const newIds = await this.prisma.tx(async (tx) => {
+      // 1. Turunan yang ikut disalin, diurutkan preorder (parent selalu sebelum anaknya)
+      const tree = input.subtasks === 'none' ? [] : await TaskHierarchy.descendants(tx, taskId);
+      const descIds = tree.map((n) => n.id).filter((id) => id !== taskId);
+      if (input.subtasks === 'selected') {
+        const known = new Set(descIds);
+        if (input.subtask_ids.some((id) => !known.has(id))) throw Errors.validation('Sebagian subtask_ids bukan turunan task ini', { field: 'subtask_ids' });
+      }
+      const all = descIds.length ? await tx.tasks.findMany({ where: { id: { in: descIds } } }) : [];
+      const keep = new Set(input.subtasks === 'all' ? descIds : input.subtasks === 'selected' ? input.subtask_ids : []);
+      const byId = new Map(all.map((t) => [t.id, t]));
+      const parentOf = (t: tasks): string => {
+        let p = t.parent_task_id;
+        while (p && p !== taskId && !keep.has(p)) p = byId.get(p)?.parent_task_id ?? null;
+        return p ?? taskId;
+      };
+      const children = new Map<string, tasks[]>();
+      for (const t of all) {
+        if (!keep.has(t.id)) continue;
+        const p = parentOf(t);
+        children.set(p, [...(children.get(p) ?? []), t]);
+      }
+      const byOrder = (a: tasks, b: tasks) => a.order_index - b.order_index || a.created_at.getTime() - b.created_at.getTime();
+      const ordered: tasks[] = [];
+      const walk = (pid: string) => {
+        for (const c of (children.get(pid) ?? []).sort(byOrder)) {
+          ordered.push(c);
+          walk(c.id);
+        }
+      };
+      walk(taskId);
+
+      // 2. Timeline: sama / digeser agar task utama mulai di start_date / dikosongkan
+      let delta = 0;
+      if (input.timeline === 'shift' && input.start_date) {
+        const anchor = toDateString(task.start_date) ?? ordered.map((t) => toDateString(t.start_date)).filter((d): d is string => !!d).sort()[0];
+        if (anchor) delta = diffDays(anchor, input.start_date);
+      }
+      const move = (d: Date | null) => (d && delta ? fromDateString(addDays(toDateString(d) as string, delta)) : d);
+      const schedule = (t: tasks) =>
+        input.timeline === 'none'
+          ? { start_date: null, end_date: null, is_milestone: false }
+          : { start_date: move(t.start_date), end_date: move(t.end_date), is_milestone: t.is_milestone };
+
+      // 3. Assignee: hanya user yang masih anggota aktif non-viewer
+      const eligible = new Set<string>();
+      if (input.copy_assignee) {
+        const userIds = [...new Set([task, ...ordered].map((t) => t.assignee_user_id).filter((id): id is string => !!id))];
+        if (userIds.length) {
+          const members = await tx.workspace_members.findMany({
+            where: { workspace_id: workspace.id, user_id: { in: userIds }, role: { not: 'viewer' }, user: { is_active: true } },
+            select: { user_id: true },
+          });
+          for (const m of members) eligible.add(m.user_id);
+        }
+      }
+      const assignee = (t: tasks) =>
+        t.assignee_type === 'user' && t.assignee_user_id && eligible.has(t.assignee_user_id)
+          ? { assignee_type: 'user' as const, assignee_user_id: t.assignee_user_id, assignee_agent_id: null }
+          : { assignee_type: null, assignee_user_id: null, assignee_agent_id: null };
+      const fields = (t: tasks) => ({
+        project_id: task.project_id,
+        status: 'todo' as const,
+        priority: t.priority,
+        tags: t.tags,
+        created_by_type: actor.type,
+        created_by_id: actor.id,
+        ...schedule(t),
+        ...assignee(t),
+      });
+
+      // 4. Simpan: task utama tepat setelah aslinya, turunan di akhir kolom To Do
+      const idMap = new Map<string, string>([[taskId, randomUUID()]]);
+      const depthOf = new Map<string, number>([[taskId, task.depth]]);
+      const rootId = idMap.get(taskId) as string;
+      const rootOrder = await this.nextOrderIndex(tx, task.project_id, 'todo', taskId);
+      await tx.tasks.create({
+        data: { ...fields(task), id: rootId, parent_task_id: task.parent_task_id, depth: task.depth, title: rootTitle, order_index: rootOrder },
+      });
+      if (ordered.length) {
+        const max = await tx.tasks.aggregate({ where: { project_id: task.project_id, status: 'todo', deleted_at: null }, _max: { order_index: true } });
+        let next = (max._max.order_index ?? -1) + 1;
+        const rows: Prisma.tasksCreateManyInput[] = ordered.map((t) => {
+          const parent = parentOf(t);
+          const depth = (depthOf.get(parent) as number) + 1;
+          const id = randomUUID();
+          idMap.set(t.id, id);
+          depthOf.set(t.id, depth);
+          return { ...fields(t), id, parent_task_id: idMap.get(parent) as string, depth, title: t.title, order_index: next++ };
+        });
+        await tx.tasks.createMany({ data: rows });
+      }
+
+      // 5. Isi dokumen task (block editor), parent blok selalu disimpan lebih dulu
+      if (input.copy_content) {
+        const blocks = await tx.document_blocks.findMany({ where: { task_id: { in: [...idMap.keys()] }, deleted_at: null } });
+        const blockIds = new Map(blocks.map((b) => [b.id, randomUUID()]));
+        const sorted: typeof blocks = [];
+        const placed = new Set<string>();
+        let pending = blocks;
+        while (pending.length) {
+          const ready = pending.filter((b) => !b.parent_block_id || !blockIds.has(b.parent_block_id) || placed.has(b.parent_block_id));
+          if (!ready.length) break;
+          for (const b of ready) {
+            sorted.push(b);
+            placed.add(b.id);
+          }
+          pending = pending.filter((b) => !placed.has(b.id));
+        }
+        if (sorted.length) {
+          await tx.document_blocks.createMany({
+            data: sorted.map((b) => ({
+              id: blockIds.get(b.id) as string,
+              project_id: task.project_id,
+              task_id: idMap.get(b.task_id as string) as string,
+              parent_block_id: b.parent_block_id ? (blockIds.get(b.parent_block_id) ?? null) : null,
+              block_type: b.block_type,
+              content_json: b.content_json as Prisma.InputJsonValue,
+              plain_text: b.plain_text,
+              order_index: b.order_index,
+              last_edited_by_type: actor.type,
+              last_edited_by_id: actor.id,
+            })),
+          });
+        }
+      }
+
+      await this.activity.log(
+        tx,
+        {
+          workspaceId: workspace.id,
+          projectId: task.project_id,
+          entityType: 'task',
+          entityId: rootId,
+          action: 'task.duplicated',
+          actor,
+          metadata: { title: rootTitle, source_task_id: taskId, source_title: task.title, subtask_count: ordered.length, parent_task_id: task.parent_task_id },
+        },
+        effects,
+      );
+      return [...idMap.values()];
+    });
+
+    const dtos = await this.reader.getDtos(newIds);
+    effects.add(() => {
+      for (const dto of dtos) this.realtime.toProject(task.project_id, RealtimeEvent.TASK_CREATED, { task: dto }, { actor, originClientId: clientId });
+    });
+    await effects.run();
+    return { task: dtos.find((d) => d.id === newIds[0]) ?? null, created_count: newIds.length };
   }
 
   // ================= Move & reorder =================

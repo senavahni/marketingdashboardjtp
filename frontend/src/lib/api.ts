@@ -1,8 +1,9 @@
 import { getToken, useAuth } from './auth-store';
+import { uuid } from './utils';
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) || '/api/v1';
 /** ID unik per tab — dipakai backend sebagai origin_client_id agar echo event sendiri bisa diabaikan. */
-export const CLIENT_ID = crypto.randomUUID();
+export const CLIENT_ID = uuid();
 
 export class ApiError extends Error {
   constructor(

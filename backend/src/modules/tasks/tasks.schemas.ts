@@ -44,6 +44,23 @@ export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 
 export const moveTaskSchema = z.object({ parent_task_id: uuid.nullable() });
 
+/** Salin task/subtask beserta (sebagian) turunannya — salinan diletakkan di parent yang sama. */
+export const duplicateTaskSchema = z
+  .object({
+    /** Judul task utama hasil salinan (default: "<judul asli> (salinan)"). Subtask memakai judul aslinya. */
+    title: taskFields.title.optional(),
+    /** all = semua turunan, selected = hanya subtask_ids, none = task itu saja. */
+    subtasks: z.enum(['all', 'selected', 'none']).default('all'),
+    subtask_ids: z.array(uuid).max(5000).default([]),
+    /** same = tanggal sama, shift = geser agar task utama mulai di start_date, none = tanpa tanggal. */
+    timeline: z.enum(['same', 'shift', 'none']).default('same'),
+    start_date: dateString.optional(),
+    copy_assignee: z.boolean().default(true),
+    copy_content: z.boolean().default(true),
+  })
+  .refine((v) => v.timeline !== 'shift' || !!v.start_date, { message: 'start_date wajib diisi jika timeline = shift', path: ['start_date'] });
+export type DuplicateTaskInput = z.infer<typeof duplicateTaskSchema>;
+
 export const reorderTasksSchema = z.object({
   project_id: uuid,
   status: taskStatus,

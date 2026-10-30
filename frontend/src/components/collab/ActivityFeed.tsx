@@ -18,6 +18,8 @@ export function describeActivity(a: Activity): string {
       return 'mengubah detail project';
     case 'task.created':
       return `membuat task “${m.title ?? ''}”`;
+    case 'task.duplicated':
+      return `menyalin task dari “${m.source_title ?? ''}”${m.subtask_count ? ` beserta ${m.subtask_count} subtask` : ''}`;
     case 'task.updated':
       return `mengubah ${Object.keys(m.changes ?? {}).map((k) => FIELD_LABEL[k] ?? k).join(', ')}`;
     case 'task.status_changed':
