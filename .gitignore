@@ -29,12 +29,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
-<<<<<<< HEAD
 .claude/*
 .claude/
-CLAUDE.MD
-=======
-.claude/*
-.claude/
->>>>>>> modul2
 CLAUDE.MD
