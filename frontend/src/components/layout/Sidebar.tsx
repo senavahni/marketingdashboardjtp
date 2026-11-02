@@ -1,4 +1,4 @@
-import { Bot, ChevronsUpDown, GraduationCap, House, LogOut, MoreHorizontal, PanelLeftClose, Plus, Settings, Trash2 } from 'lucide-react';
+import { Bot, ChartNoAxesCombined, ChevronsUpDown, GraduationCap, House, LogOut, MoreHorizontal, PanelLeftClose, Plus, Settings, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, useNavigate, useParams } from 'react-router';
 import { useAgents, useCreateProject, useDeleteProject, useProjects, useWorkspaces } from '../../hooks/queries';
@@ -92,6 +92,12 @@ export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role
           className={({ isActive }) => cn('flex items-center gap-2 rounded px-2 py-1 text-ink-soft hover:bg-hover', isActive && 'bg-hover text-ink')}
         >
           <House size={16} /> Beranda
+        </NavLink>
+        <NavLink
+          to={`/w/${workspaceId}/web-report`}
+          className={({ isActive }) => cn('flex items-center gap-2 rounded px-2 py-1 text-ink-soft hover:bg-hover', isActive && 'bg-hover text-ink')}
+        >
+          <ChartNoAxesCombined size={16} /> Laporan Website
         </NavLink>
         <div data-tour="inbox">
           <Inbox />

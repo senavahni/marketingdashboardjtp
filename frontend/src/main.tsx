@@ -1,7 +1,7 @@
 import './index.css';
 import { MantineProvider } from '@mantine/core';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { StrictMode, useEffect, type ReactNode } from 'react';
+import { lazy, StrictMode, Suspense, useEffect, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router';
 import { Toaster } from 'sonner';
@@ -13,6 +13,9 @@ import { queryClient } from './lib/query-client';
 import { LoginPage, loadMe, RegisterPage } from './pages/AuthPages';
 import { ProjectPage } from './pages/ProjectPage';
 import { TaskPage } from './pages/TaskPage';
+
+// Modul 2 (beserta Recharts) dimuat saat menu dibuka agar bundle awal tidak membesar
+const WebReportPage = lazy(() => import('./pages/WebReportPage').then((m) => ({ default: m.WebReportPage })));
 import { WorkspaceHome } from './pages/WorkspaceHome';
 
 /** Saat app dimuat: access token didapat dari refresh cookie (token tidak disimpan di storage). */
@@ -64,6 +67,14 @@ const router = createBrowserRouter([
       { index: true, element: <WorkspaceHome /> },
       { path: 'p/:projectId', element: <ProjectPage /> },
       { path: 't/:taskId', element: <TaskPage /> },
+      {
+        path: 'web-report',
+        element: (
+          <Suspense fallback={<FullPageSpinner />}>
+            <WebReportPage />
+          </Suspense>
+        ),
+      },
     ],
   },
   { path: '*', element: <EmptyState icon="🧭" title="Halaman tidak ditemukan" /> },

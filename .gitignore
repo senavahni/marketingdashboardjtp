@@ -19,6 +19,7 @@ backend/src/generated/
 
 # ---- Frontend ----
 frontend/.vite/
+frontend/e2e/.results/
 
 # ---- Logs & OS/editor ----
 *.log
@@ -28,3 +29,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+.claude/*
+.claude/
+CLAUDE.MD

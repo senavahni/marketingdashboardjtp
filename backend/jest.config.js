@@ -3,8 +3,11 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/test'],
   testMatch: ['**/*.spec.ts'],
+  // Integration test butuh backend berjalan → dijalankan terpisah lewat `npm run test:api`
+  testPathIgnorePatterns: ['/node_modules/', '/test/integration/'],
   transform: {
-    '^.+\\.ts$': [
+    // .js ikut ditransformasi karena @nestjs/* v12 dirilis sebagai ESM (lihat transformIgnorePatterns)
+    '^.+\\.(t|j)s$': [
       '@swc/jest',
       {
         jsc: {
@@ -16,6 +19,7 @@ module.exports = {
       },
     ],
   },
+  transformIgnorePatterns: ['/node_modules/(?!@nestjs/)'],
   // Import ".js" di kode hasil generate Prisma menunjuk ke file .ts
   moduleNameMapper: { '^(\\.{1,2}/.*)\\.js$': '$1' },
   moduleFileExtensions: ['ts', 'js', 'json'],

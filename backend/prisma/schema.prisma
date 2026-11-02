@@ -65,6 +65,13 @@ enum agent_run_status {
   cancelled
 }
 
+enum web_report_period_type {
+  monthly
+  quarterly
+  yearly
+  custom
+}
+
 enum entity_type {
   workspace
   project
@@ -87,15 +94,17 @@ model users {
   created_at    DateTime  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
-  refresh_tokens   refresh_tokens[]
-  owned_workspaces workspaces[]        @relation("workspace_owner")
-  memberships      workspace_members[]
-  agents_created   agents[]            @relation("agent_creator")
-  projects_created projects[]          @relation("project_creator")
-  assigned_tasks   tasks[]             @relation("task_assignee_user")
-  comments         comments[]          @relation("comment_author_user")
-  notifications    notifications[]
-  dispatched_runs  agent_runs[]        @relation("run_dispatcher")
+  refresh_tokens      refresh_tokens[]
+  owned_workspaces    workspaces[]          @relation("workspace_owner")
+  memberships         workspace_members[]
+  agents_created      agents[]              @relation("agent_creator")
+  projects_created    projects[]            @relation("project_creator")
+  assigned_tasks      tasks[]               @relation("task_assignee_user")
+  comments            comments[]            @relation("comment_author_user")
+  notifications       notifications[]
+  dispatched_runs     agent_runs[]          @relation("run_dispatcher")
+  web_reports_created web_report_sessions[] @relation("web_report_creator")
+  web_reports_updated web_report_sessions[] @relation("web_report_updater")
 }
 
 model refresh_tokens {
@@ -127,13 +136,14 @@ model workspaces {
   updated_at DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
   deleted_at DateTime? @db.Timestamptz(6)
 
-  owner         users               @relation("workspace_owner", fields: [owner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  owner         users                 @relation("workspace_owner", fields: [owner_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   members       workspace_members[]
   agents        agents[]
   projects      projects[]
   activity_logs activity_logs[]
   notifications notifications[]
   agent_runs    agent_runs[]
+  web_reports   web_report_sessions[]
 }
 
 model workspace_members {
@@ -356,4 +366,34 @@ model mcp_webhook_events {
   processed_at DateTime? @db.Timestamptz(6)
 
   run agent_runs? @relation(fields: [run_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+// ===== Modul 2: Laporan Performa Website (M2_TASK_001) =====
+// CHECK constraint & partial index ditulis manual di migrasi SQL.
+model web_report_sessions {
+  id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id     String                 @db.Uuid
+  title            String                 @db.VarChar(150)
+  period_type      web_report_period_type @default(monthly)
+  period_start     DateTime               @db.Date
+  period_end       DateTime               @db.Date
+  visitors         Int
+  leads            Int
+  sales_count      Int
+  revenue          Decimal                @db.Decimal(18, 2)
+  cost_maintenance Decimal                @default(0) @db.Decimal(18, 2)
+  cost_ads         Decimal                @default(0) @db.Decimal(18, 2)
+  notes            String?
+  results          Json
+  formula_version  Int                    @db.SmallInt
+  version          Int                    @default(1)
+  created_by       String?                @db.Uuid
+  updated_by       String?                @db.Uuid
+  created_at       DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime               @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at       DateTime?              @db.Timestamptz(6)
+
+  workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator   users?     @relation("web_report_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updater   users?     @relation("web_report_updater", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
