@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "format": "prettier --config ../.prettierrc --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js",
+    "test:api": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js --testPathIgnorePatterns=/node_modules/ --runInBand test/integration",
     "test:cov": "node --experimental-vm-modules --no-warnings=ExperimentalWarning node_modules/jest/bin/jest.js --coverage",
     "prisma:generate": "prisma generate",
     "db:create": "npm run build && node dist/scripts/create-database.js",
@@ -63,7 +64,7 @@
     "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
     "concurrently": "10.0.6",
-    "jest": "^25.1.0",
+    "jest": "30.5.2",
     "pino-pretty": "13.2.0",
     "prettier": "3.9.10",
     "typescript": "7.0.2"

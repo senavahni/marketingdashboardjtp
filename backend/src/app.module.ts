@@ -21,6 +21,7 @@ import { ProjectsModule } from './modules/projects/projects.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { TimelineModule } from './modules/timeline/timeline.module';
+import { WebReportsModule } from './modules/web-reports/web-reports.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
 import { RedisModule } from './redis/redis.module';
@@ -51,6 +52,8 @@ import { buildLoggerParams } from './utils/logger/logger.config';
     TimelineModule,
     WebhooksModule,
     AgentApiModule,
+    // Modul 2
+    WebReportsModule,
     HealthModule,
   ],
   providers: [

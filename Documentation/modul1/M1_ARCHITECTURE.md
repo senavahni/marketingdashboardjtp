@@ -165,7 +165,7 @@ dashboard-marketing/
 | 403 | `FORBIDDEN` | User anggota workspace tapi role tidak cukup |
 | 404 | `NOT_FOUND`, `USER_NOT_FOUND` | Resource tidak ada **atau user bukan anggota workspace pemiliknya** (tidak membocorkan keberadaan resource) |
 | 409 | `VERSION_CONFLICT`, `CASCADE_DECISION_REQUIRED`, `RUN_NOT_ACTIVE`, `ALREADY_EXISTS` | Konflik state |
-| 422 | `INVALID_DATE_RANGE`, `HIERARCHY_DEPTH_EXCEEDED`, `CIRCULAR_HIERARCHY`, `CROSS_PROJECT_PARENT`, `AGENT_INACTIVE`, `INVALID_ASSIGNEE`, `LAST_OWNER` | Pelanggaran aturan bisnis |
+| 422 | `INVALID_DATE_RANGE`, `HIERARCHY_DEPTH_EXCEEDED`, `CIRCULAR_HIERARCHY`, `CROSS_PROJECT_PARENT`, `AGENT_INACTIVE`, `INVALID_ASSIGNEE`, `LAST_OWNER`, `FUNNEL_INCONSISTENT`, `INVALID_PERIOD` (Modul 2) | Pelanggaran aturan bisnis |
 | 429 | `RATE_LIMITED` | Disertai header `Retry-After` |
 | 500 | `INTERNAL_ERROR` | Error tak terduga (detail hanya di log/Sentry) |
 

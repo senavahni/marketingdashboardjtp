@@ -1,12 +1,13 @@
 import * as argon2 from 'argon2';
 import { actor_type, Prisma, task_priority, task_status } from '../../generated/prisma/client';
+import { calculateWebReport, FORMULA_VERSION } from '../../modules/web-reports/web-report.calculator';
 import { extractPlainText, validateBlockContent } from '../../shared/schemas/block.schema';
 import { SEED_IDS } from './seed-ids';
 import { assertNotProduction, createScriptClient } from './seed-client';
 
 /**
  * Data dummy untuk demo: 3 user tambahan + 3 project marketing lengkap (task, subtask, milestone,
- * timeline relatif terhadap hari ini, brief, komentar & balasan, riwayat aktivitas).
+ * timeline relatif terhadap hari ini, brief, komentar & balasan, riwayat aktivitas) + 4 sesi Laporan Website (Modul 2).
  * Idempotent (ID deterministik). Jalankan setelah db:seed: npm run db:seed:dummy
  */
 
@@ -319,6 +320,61 @@ const PROJECTS: ProjectSeed[] = [
   },
 ];
 
+const WEB_REPORTS = [
+  {
+    title: 'Website — Oktober 2026 (contoh perhitungan)',
+    period_type: 'monthly' as const,
+    period_start: '2026-10-01',
+    period_end: '2026-10-31',
+    visitors: 20_000,
+    leads: 800,
+    sales_count: 200,
+    revenue: '150000000',
+    cost_maintenance: '10000000',
+    cost_ads: '5000000',
+    notes: 'Data contoh GT-1 dari diskusi perhitungan conversion rate & nominal order.',
+  },
+  {
+    title: 'Website — Januari 2026',
+    period_type: 'monthly' as const,
+    period_start: '2026-01-01',
+    period_end: '2026-01-31',
+    visitors: 10_000,
+    leads: 300,
+    sales_count: 100,
+    revenue: '50000000',
+    cost_maintenance: '5000000',
+    cost_ads: '0',
+    notes: 'CR lebih tinggi, tetapi nominal lebih kecil dibanding Februari.',
+  },
+  {
+    title: 'Website — Februari 2026',
+    period_type: 'monthly' as const,
+    period_start: '2026-02-01',
+    period_end: '2026-02-28',
+    visitors: 10_000,
+    leads: 300,
+    sales_count: 50,
+    revenue: '75000000',
+    cost_maintenance: '5000000',
+    cost_ads: '0',
+    notes: 'CR lebih rendah, tetapi omset & RPV lebih tinggi (high-value customers).',
+  },
+  {
+    title: 'Laporan Tahunan Website 2025',
+    period_type: 'yearly' as const,
+    period_start: '2025-01-01',
+    period_end: '2025-12-31',
+    visitors: 34_505,
+    leads: 110,
+    sales_count: 2,
+    revenue: '112761900',
+    cost_maintenance: '4574519',
+    cost_ads: '0',
+    notes: 'Input direkonstruksi dari hasil laporan aktual (AOV Rp56.380.950, RPV Rp3.268, ROAS 24,65x). Ganti dengan data asli bila tersedia.',
+  },
+];
+
 async function main(): Promise<void> {
   assertNotProduction();
   const prisma = createScriptClient();
@@ -479,10 +535,27 @@ async function main(): Promise<void> {
     await addComments(projectId, { type: 'project', id: projectId }, p.comments, null);
   }
 
+  // ---------- Modul 2: sesi Laporan Website (golden test M2_PRD §6.5) ----------
+  for (const [n, r] of WEB_REPORTS.entries()) {
+    const data = {
+      ...r,
+      period_start: new Date(`${r.period_start}T00:00:00.000Z`),
+      period_end: new Date(`${r.period_end}T00:00:00.000Z`),
+      results: calculateWebReport(r) as unknown as Prisma.InputJsonValue,
+      formula_version: FORMULA_VERSION,
+      deleted_at: null,
+    };
+    await prisma.web_report_sessions.upsert({
+      where: { id: id(7, n + 1) },
+      create: { ...data, id: id(7, n + 1), workspace_id: SEED_IDS.wsDemo, created_by: SEED_IDS.manager, updated_by: SEED_IDS.manager },
+      update: data,
+    });
+  }
+
   await prisma.$disconnect();
   // eslint-disable-next-line no-console
   console.log(
-    `Seed dummy selesai: ${PROJECTS.length} project, ${taskCount} task, ${commentCount} komentar.\n` +
+    `Seed dummy selesai: ${PROJECTS.length} project, ${taskCount} task, ${commentCount} komentar, ${WEB_REPORTS.length} laporan website.\n` +
       `User baru (password: ${password}): ${NEW_USERS.map((u) => u.email).join(', ')}`,
   );
 }
