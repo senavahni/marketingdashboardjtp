@@ -211,7 +211,13 @@ export class TasksService {
 
   async update(user: AuthUser, taskId: string, input: UpdateTaskInput, clientId: string | null) {
     const { task, workspace } = await this.access.assertTask(user.id, taskId, 'member');
-    const actor = userActor(user);
+    return this.updateAs(userActor(user), task, workspace.id, input, clientId);
+  }
+
+  /** Inti update task (dipakai API user & Service API MCP dengan aktor agent). Akses dicek pemanggil. */
+  async updateAs(actor: Actor, task: tasks, workspaceId: string, input: UpdateTaskInput, clientId: string | null) {
+    const taskId = task.id;
+    const workspace = { id: workspaceId };
     const nextAssignee = await this.assignment.resolve(workspace.id, input.assignee);
     const assigneeChanged = nextAssignee !== undefined && !TaskAssignmentService.same(task, nextAssignee);
 
@@ -498,8 +504,17 @@ export class TasksService {
 
   async move(user: AuthUser, taskId: string, parentTaskId: string | null, clientId: string | null) {
     const { task, workspace } = await this.access.assertTask(user.id, taskId, 'member');
-    const actor = userActor(user);
-    if (parentTaskId === task.parent_task_id) return this.reader.getDto(taskId);
+    return this.moveAs(userActor(user), task, workspace.id, parentTaskId, clientId);
+  }
+
+  /**
+   * Inti pindah parent (anti circular, batas kedalaman). `beforeTaskId` (opsional, Service API MCP)
+   * menempatkan task tepat sebelum task lain berstatus sama di urutan kolom.
+   */
+  async moveAs(actor: Actor, task: tasks, workspaceId: string, parentTaskId: string | null, clientId: string | null, beforeTaskId?: string) {
+    const taskId = task.id;
+    const workspace = { id: workspaceId };
+    if (parentTaskId === task.parent_task_id && !beforeTaskId) return this.reader.getDto(taskId);
 
     const effects = new AfterCommit();
     const movedIds = await this.prisma.tx(async (tx) => {
@@ -520,6 +535,17 @@ export class TasksService {
       const delta = newDepth - task.depth;
 
       await tx.tasks.update({ where: { id: taskId }, data: { parent_task_id: parentTaskId } });
+      if (beforeTaskId) {
+        const before = await tx.tasks.findFirst({ where: { id: beforeTaskId, project_id: task.project_id, deleted_at: null } });
+        if (!before || before.id === taskId) throw Errors.validation('before_task_id tidak ditemukan di project ini', { field: 'before_task_id' });
+        if (before.status === task.status) {
+          await tx.tasks.updateMany({
+            where: { project_id: task.project_id, status: task.status, deleted_at: null, order_index: { gte: before.order_index }, id: { not: taskId } },
+            data: { order_index: { increment: 1 } },
+          });
+          await tx.tasks.update({ where: { id: taskId }, data: { order_index: before.order_index } });
+        }
+      }
       if (delta !== 0) {
         await tx.tasks.updateMany({ where: { id: { in: subtree.map((n) => n.id) } }, data: { depth: { increment: delta } } });
       }

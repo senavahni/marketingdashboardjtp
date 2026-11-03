@@ -8,6 +8,8 @@ import { AfterCommit } from '../../utils/helpers/after-commit';
 import { ActivityService } from '../activity/activity.service';
 import { AgentRunsService } from '../agent-runs/agent-runs.service';
 import { AccessService } from '../core/access.service';
+import { RealtimeEvent } from '../realtime/realtime.events';
+import { RealtimeService } from '../realtime/realtime.service';
 import { CreateProjectInput, UpdateProjectInput } from './projects.schemas';
 
 const projectInclude = {
@@ -23,6 +25,7 @@ export class ProjectsService {
     private readonly access: AccessService,
     private readonly activity: ActivityService,
     private readonly runs: AgentRunsService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async list(user: AuthUser, workspaceId: string) {
@@ -50,6 +53,46 @@ export class ProjectsService {
       );
       return p;
     });
+    await effects.run();
+    return this.toDto(project);
+  }
+
+  async createAs(actor: { type: 'agent'; id: string; name: string }, input: CreateProjectInput) {
+    const workspace = await this.prisma.workspaces.findFirst({
+      where: { id: input.workspace_id, deleted_at: null },
+      select: { id: true },
+    });
+    if (!workspace) throw Errors.notFound('Workspace tidak ditemukan');
+    const effects = new AfterCommit();
+    const project = await this.prisma.tx(async (tx) => {
+      const created = await tx.projects.create({
+        data: {
+          workspace_id: workspace.id,
+          title: input.title,
+          description: input.description,
+          icon: input.icon,
+          created_by: null,
+        },
+        include: projectInclude,
+      });
+      await this.activity.log(
+        tx,
+        {
+          workspaceId: workspace.id,
+          projectId: created.id,
+          entityType: 'project',
+          entityId: created.id,
+          action: 'project.created',
+          actor,
+          metadata: { title: created.title },
+        },
+        effects,
+      );
+      return created;
+    });
+    effects.add(() =>
+      this.realtime.toProject(project.id, RealtimeEvent.PROJECT_CREATED, { project: this.toDto(project) }, { actor }),
+    );
     await effects.run();
     return this.toDto(project);
   }

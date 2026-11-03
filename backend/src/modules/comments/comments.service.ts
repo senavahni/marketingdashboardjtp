@@ -25,7 +25,7 @@ export const commentInclude = {
 } satisfies Prisma.commentsInclude;
 type CommentRow = Prisma.commentsGetPayload<{ include: typeof commentInclude }>;
 
-interface EntityContext {
+export interface EntityContext {
   workspaceId: string;
   projectId: string;
   taskId: string | null;
@@ -159,6 +159,86 @@ export class CommentsService {
     effects.add(() => this.realtime.toProjectAndTask(ctx.projectId, ctx.taskId, RealtimeEvent.COMMENT_CREATED, { comment: dto }, { actor, originClientId: clientId }));
     await effects.run();
     return { ...dto, warnings };
+  }
+
+  /** MCP service writes do not trigger agent mentions; only user notifications are emitted. */
+  async createAs(
+    actor: Actor,
+    ctx: EntityContext,
+    input: Pick<CreateCommentInput, 'entity_type' | 'entity_id' | 'content' | 'parent_comment_id' | 'mentions'>,
+    clientId: string | null,
+  ) {
+    let parentId: string | null = null;
+    if (input.parent_comment_id) {
+      const parent = await this.prisma.comments.findFirst({
+        where: {
+          id: input.parent_comment_id,
+          entity_type: input.entity_type,
+          entity_id: input.entity_id,
+          deleted_at: null,
+        },
+      });
+      if (!parent) throw Errors.validation('parent_comment_id tidak ditemukan pada entity ini');
+      parentId = parent.parent_comment_id ?? parent.id;
+    }
+    const { valid, users } = await this.validateMentions(ctx.workspaceId, input.mentions);
+    const effects = new AfterCommit();
+    const comment = await this.prisma.tx(async (tx) => {
+      const created = await tx.comments.create({
+        data: {
+          project_id: ctx.projectId,
+          entity_type: input.entity_type,
+          entity_id: input.entity_id,
+          parent_comment_id: parentId,
+          author_type: 'agent',
+          author_agent_id: actor.id,
+          content: input.content,
+          mentions: valid as unknown as Prisma.InputJsonValue,
+        },
+        include: commentInclude,
+      });
+      await this.activity.log(
+        tx,
+        {
+          workspaceId: ctx.workspaceId,
+          projectId: ctx.projectId,
+          entityType: input.entity_type,
+          entityId: input.entity_id,
+          action: 'comment.created',
+          actor,
+          metadata: { comment_id: created.id, excerpt: excerpt(created.content), task_id: ctx.taskId },
+        },
+        effects,
+      );
+      await this.notifications.notify(
+        tx,
+        {
+          recipients: users.map((user) => user.id),
+          workspaceId: ctx.workspaceId,
+          type: 'comment_mention',
+          title: `${actor.name ?? 'Agent'} menyebut Anda di ${ctx.title}`,
+          body: excerpt(created.content, 200),
+          projectId: ctx.projectId,
+          entityType: ctx.taskId ? 'task' : 'project',
+          entityId: ctx.taskId ?? ctx.projectId,
+          actor,
+        },
+        effects,
+      );
+      return created;
+    });
+    const dto = this.toDto(comment, await this.mentionNames([comment]));
+    effects.add(() =>
+      this.realtime.toProjectAndTask(
+        ctx.projectId,
+        ctx.taskId,
+        RealtimeEvent.COMMENT_CREATED,
+        { comment: dto },
+        { actor, originClientId: clientId },
+      ),
+    );
+    await effects.run();
+    return dto;
   }
 
   async update(user: AuthUser, commentId: string, input: UpdateCommentInput, clientId: string | null) {

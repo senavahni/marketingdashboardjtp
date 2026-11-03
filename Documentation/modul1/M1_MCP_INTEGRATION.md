@@ -3,7 +3,7 @@
 
 Dokumen ini mendefinisikan kontrak komunikasi antara Backend Modul 1 (Dashboard) dengan Custom MCP Server (Project 2). Dokumen ini adalah **kontrak bersama**: perubahan apa pun harus disetujui kedua tim dan menaikkan `contract_version`.
 
-- **Contract version:** `1.0`
+- **Contract version:** `1.1` (aditif; webhook dan Agent API tetap kompatibel `1.0`)
 - Schema Zod untuk semua payload di bawah ada di `packages/shared/src/mcp/` dan dipakai oleh Dashboard serta Mock MCP ([TASK_009](M1_TASK_009_MOCK_MCP_DEVTOOLS.md)).
 
 ---
@@ -331,6 +331,27 @@ Semua endpoint: `Authorization: Bearer <MCP_SERVICE_TOKEN>`; run harus aktif (`q
 }
 ```
 `top_k` maks 20; teks per hasil dipotong 2.000 karakter. Query memakai `websearch_to_tsquery('simple', query)` + `ts_rank`.
+
+### 6.1 Service API (MCP Server → Dashboard, contract 1.1)
+Dipakai oleh tool MCP di luar agent run. Semua request memakai `Authorization: Bearer <MCP_SERVICE_TOKEN>`
+dan `X-MCP-Agent-Id: <uuid>`; agent harus aktif. Akses setiap project/task/block/comment dibatasi
+ke workspace agent (resource di luar workspace selalu `404`). Respons menyertakan
+`X-Contract-Version: 1.1`. Batas laju: 120 request/menit per agent.
+
+| Endpoint | Fungsi |
+|---|---|
+| `GET /api/v1/mcp-api/workspaces/{workspace_id}/projects` | Daftar project ringkas dengan pencarian dan cursor |
+| `POST /api/v1/mcp-api/projects` | Buat project pada workspace agent |
+| `GET /api/v1/mcp-api/projects/{project_id}/tasks` | Daftar task dan filter |
+| `POST /api/v1/mcp-api/projects/{project_id}/tasks` · `POST /api/v1/mcp-api/tasks/{task_id}/subtasks` | Buat batch maksimum 20 task |
+| `PATCH /api/v1/mcp-api/tasks/{task_id}` | Ubah title/status/priority/jadwal/tags/milestone; assignee ditolak |
+| `PATCH /api/v1/mcp-api/tasks/{task_id}/move` · `PATCH /api/v1/mcp-api/tasks/{task_id}/reschedule` | Pindah task atau jadwal ulang |
+| `POST /api/v1/mcp-api/blocks/ops` | Append operasi blok yang divalidasi (maksimum 50) |
+| `POST /api/v1/mcp-api/comments` | Tambah komentar; mention user memberi notifikasi, mention agent tidak memulai run |
+
+Semua mutasi mencatat agent sebagai aktor serta menerbitkan event realtime/activity yang sama dengan
+aksi Dashboard. Tidak tersedia endpoint untuk menghapus project, task, atau blok, maupun mengubah
+assignee atau anggota workspace. Contract `1.0` untuk webhook dan Agent API tidak berubah.
 
 ### 7. Keandalan & Aturan Main
 

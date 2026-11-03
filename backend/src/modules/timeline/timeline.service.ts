@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ErrorCode } from '../../common/constants/error-codes';
 import { Errors } from '../../common/exceptions/app.exception';
-import { AuthUser, userActor } from '../../common/types/request.types';
+import { Actor, AuthUser, userActor } from '../../common/types/request.types';
 import { PrismaService } from '../../database/prisma.service';
-import { Prisma } from '../../generated/prisma/client';
+import { Prisma, tasks } from '../../generated/prisma/client';
 import { AfterCommit } from '../../utils/helpers/after-commit';
 import { diffDays, fromDateString, toDateString, todayInTimezone } from '../../utils/helpers/date.util';
 import { ActivityService } from '../activity/activity.service';
@@ -53,7 +53,13 @@ export class TimelineService {
   /** PATCH /tasks/:id/reschedule — cascade "shift" menggeser semua turunan bertanggal sebesar delta hari. */
   async reschedule(user: AuthUser, taskId: string, input: RescheduleInput, clientId: string | null) {
     const { task, workspace } = await this.access.assertTask(user.id, taskId, 'member');
-    const actor = userActor(user);
+    return this.rescheduleAs(userActor(user), task, workspace.id, input, clientId);
+  }
+
+  /** Inti reschedule (dipakai API user & Service API MCP dengan aktor agent). Akses dicek pemanggil. */
+  async rescheduleAs(actor: Actor, task: tasks, workspaceId: string, input: RescheduleInput, clientId: string | null) {
+    const taskId = task.id;
+    const workspace = { id: workspaceId };
     const schedule = normalizeSchedule({ start_date: input.start_date, end_date: input.end_date, is_milestone: task.is_milestone });
     const oldStart = toDateString(task.start_date);
     const delta = oldStart && schedule.start_date ? diffDays(oldStart, schedule.start_date) : 0;

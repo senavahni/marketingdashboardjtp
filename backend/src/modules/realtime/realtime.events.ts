@@ -1,5 +1,6 @@
 /** Nama event Socket.IO server → klien (M1_ARCHITECTURE §6). */
 export const RealtimeEvent = {
+  PROJECT_CREATED: 'project.created',
   TASK_CREATED: 'task.created',
   TASK_UPDATED: 'task.updated',
   TASK_DELETED: 'task.deleted',

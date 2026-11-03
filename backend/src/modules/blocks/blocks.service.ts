@@ -158,6 +158,59 @@ export class BlocksService {
     };
   }
 
+  /** Service API MCP: apply validated append operations with the agent as actor. */
+  async applyAs(actor: Actor, scope: BlockScope, ops: BlockOperation[], clientId: string | null) {
+    const effects = new AfterCommit();
+    const result = await this.prisma.tx((tx) =>
+      this.applyOperations(tx, scope, ops, actor, { requireVersionForUpdate: false }, effects),
+    );
+    effects.add(() => this.emitChanges(scope, result, actor, clientId));
+    if (scope.taskId && result.upserted.length) {
+      effects.add(async () => {
+        const fx = new AfterCommit();
+        await this.activity.log(
+          this.prisma,
+          {
+            workspaceId: scope.workspaceId,
+            projectId: scope.projectId,
+            entityType: 'task',
+            entityId: scope.taskId!,
+            action: 'task.content_edited',
+            actor,
+            metadata: { block_count: result.upserted.length },
+          },
+          fx,
+        );
+        await fx.run();
+      });
+    }
+    if (result.newUserMentions.length) {
+      effects.add(async () => {
+        const fx = new AfterCommit();
+        await this.notifications.notify(
+          this.prisma,
+          {
+            recipients: result.newUserMentions,
+            workspaceId: scope.workspaceId,
+            type: 'comment_mention',
+            title: `${actor.name ?? 'Agent'} menyebut Anda di dokumen ${scope.title}`,
+            projectId: scope.projectId,
+            entityType: scope.taskId ? 'task' : 'project',
+            entityId: scope.taskId ?? scope.projectId,
+            actor,
+          },
+          fx,
+        );
+        await fx.run();
+      });
+    }
+    await effects.run();
+    return {
+      applied: result.applied,
+      conflicts: result.conflicts.map(({ id, server_version }) => ({ id, server_version })),
+    };
+  }
+
   async reorder(user: AuthUser, input: ReorderBlocksInput, clientId: string | null) {
     const scope = await this.resolveScope(user, input.project_id, input.task_id ?? null, 'member');
     const ids = [...new Set(input.ordered_ids)];

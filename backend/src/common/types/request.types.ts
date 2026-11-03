@@ -15,6 +15,7 @@ export interface Actor {
 
 export interface AppRequest extends Request {
   user?: AuthUser;
+  mcpAgent?: { id: string; workspace_id: string; name: string; handle: string };
   rawBody?: Buffer;
 }
 

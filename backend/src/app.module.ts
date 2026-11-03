@@ -10,6 +10,7 @@ import { DatabaseModule } from './database/database.module';
 import { ActivityModule } from './modules/activity/activity.module';
 import { AgentApiModule } from './modules/agent-api/agent-api.module';
 import { AgentRunsModule } from './modules/agent-runs/agent-runs.module';
+import { McpApiModule } from './modules/mcp-api/mcp-api.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BlocksModule } from './modules/blocks/blocks.module';
@@ -52,6 +53,7 @@ import { buildLoggerParams } from './utils/logger/logger.config';
     TimelineModule,
     WebhooksModule,
     AgentApiModule,
+    McpApiModule,
     // Modul 2
     WebReportsModule,
     HealthModule,

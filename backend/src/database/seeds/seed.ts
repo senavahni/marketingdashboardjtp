@@ -62,11 +62,12 @@ async function main(): Promise<void> {
   for (const a of [
     { id: SEED_IDS.strategist, name: 'Agent_Strategist', handle: 'Agent_Strategist', key: 'strategist', desc: 'Menyusun strategi & kalender konten' },
     { id: SEED_IDS.researcher, name: 'Agent_Researcher', handle: 'Agent_Researcher', key: 'researcher', desc: 'Riset pasar & kompetitor' },
+    { id: SEED_IDS.mcpAssistant, name: 'MCP_Assistant', handle: 'MCP_Assistant', key: 'assistant', desc: 'Aktor Service API default untuk klien MCP eksternal' },
   ]) {
     await prisma.agents.upsert({
       where: { id: a.id },
       create: { id: a.id, workspace_id: SEED_IDS.wsDemo, name: a.name, handle: a.handle, mcp_agent_key: a.key, description: a.desc, created_by: SEED_IDS.owner },
-      update: {},
+      update: a.key === 'assistant' ? { is_active: true, deleted_at: null } : {},
     });
   }
 

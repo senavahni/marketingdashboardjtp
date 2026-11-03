@@ -23,6 +23,7 @@ export const RATE_LIMITS: Record<Exclude<RateLimitGroup, 'none'>, Window[]> = {
   general: [{ limit: 300, windowSec: 60 }],
   webhook: [{ limit: 600, windowSec: 60 }],
   agentApi: [{ limit: 300, windowSec: 60 }],
+  mcpApi: [{ limit: 120, windowSec: 60 }],
 };
 
 /** Rate limiter fixed-window berbasis Redis. Jika Redis tidak tersedia, request tetap diizinkan (fail-open) dan dicatat. */
@@ -77,6 +78,8 @@ export class RateLimitGuard implements CanActivate {
         return String(body.agent_id ?? req.ip).slice(0, 64);
       case 'agentApi':
         return String(req.params?.runId ?? req.ip).slice(0, 64);
+      case 'mcpApi':
+        return String(req.header('x-mcp-agent-id') ?? req.ip).slice(0, 64);
       default:
         return req.user?.id ?? String(req.ip);
     }
