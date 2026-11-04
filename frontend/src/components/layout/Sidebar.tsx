@@ -1,6 +1,7 @@
-import { Bot, ChartNoAxesCombined, ChevronsUpDown, GraduationCap, House, LogOut, MoreHorizontal, PanelLeftClose, Plus, Settings, Trash2 } from 'lucide-react';
+import { Bot, ChartNoAxesCombined, ChevronsUpDown, GraduationCap, House, LogOut, MoreHorizontal, PanelLeftClose, Plus, Radar, Settings, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, useNavigate, useParams } from 'react-router';
+import { useIntelEnabled } from '../../hooks/intel-queries';
 import { useAgents, useCreateProject, useDeleteProject, useProjects, useWorkspaces } from '../../hooks/queries';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth-store';
@@ -27,6 +28,7 @@ export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role
   const deleteProject = useDeleteProject(workspaceId);
   const toggleSidebar = useUi((s) => s.toggleSidebar);
   const startTour = useTour((s) => s.start);
+  const intelEnabled = useIntelEnabled(workspaceId);
   const [settings, setSettings] = useState(false);
   const current = workspaces?.find((w) => w.id === workspaceId);
   const canEdit = role !== 'viewer';
@@ -95,10 +97,20 @@ export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role
         </NavLink>
         <NavLink
           to={`/w/${workspaceId}/web-report`}
+          data-tour="nav-web-report"
           className={({ isActive }) => cn('flex items-center gap-2 rounded px-2 py-1 text-ink-soft hover:bg-hover', isActive && 'bg-hover text-ink')}
         >
           <ChartNoAxesCombined size={16} /> Laporan Website
         </NavLink>
+        {intelEnabled && (
+          <NavLink
+            to={`/w/${workspaceId}/intel`}
+            data-tour="nav-intel"
+            className={({ isActive }) => cn('flex items-center gap-2 rounded px-2 py-1 text-ink-soft hover:bg-hover', isActive && 'bg-hover text-ink')}
+          >
+            <Radar size={16} /> Riset & Insight
+          </NavLink>
+        )}
         <div data-tour="inbox">
           <Inbox />
         </div>

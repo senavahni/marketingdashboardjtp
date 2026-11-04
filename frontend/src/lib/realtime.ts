@@ -35,8 +35,8 @@ export function disconnectSocket(): void {
   joined.clear();
 }
 
-/** Join room project/task selama komponen ter-mount. */
-export function useRealtimeRoom(type: 'project' | 'task', id: string | null | undefined): void {
+/** Join room project/task/workspace selama komponen ter-mount. */
+export function useRealtimeRoom(type: 'project' | 'task' | 'workspace', id: string | null | undefined): void {
   useEffect(() => {
     if (!id) return;
     const s = getSocket();

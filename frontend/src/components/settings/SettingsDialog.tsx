@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Bot, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useIntelAgents } from '../../hooks/intel-queries';
 import { useAgents, useMembers } from '../../hooks/queries';
 import { api, errorMessage } from '../../lib/api';
 import { useAuth } from '../../lib/auth-store';
@@ -11,23 +12,29 @@ import { cn } from '../../lib/utils';
 import { ActorAvatar } from '../ui/avatar';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
+import { AgentIntelBadges, AiGatewaySettings } from './AiGatewaySettings';
 
 const ROLE_LABEL: Record<Role, string> = { owner: 'Owner', admin: 'Admin', member: 'Member', viewer: 'Viewer' };
+type Tab = 'members' | 'agents' | 'ai';
+const TAB_LABEL: Record<Tab, string> = { members: 'Anggota', agents: 'AI Agents', ai: 'AI & Gateway' };
 
-/** Pengaturan workspace: anggota (RBAC) & registry AI Agent (UC7). */
+/** Pengaturan workspace: anggota (RBAC), registry AI Agent (UC7) & AI & Gateway (Modul 3, admin). */
 export function SettingsDialog({ open, onOpenChange, workspaceId, role }: { open: boolean; onOpenChange: (o: boolean) => void; workspaceId: string; role: Role }) {
-  const [tab, setTab] = useState<'members' | 'agents'>('members');
+  const [tab, setTab] = useState<Tab>('members');
   const isAdmin = role === 'owner' || role === 'admin';
+  const tabs: Tab[] = isAdmin ? ['members', 'agents', 'ai'] : ['members', 'agents'];
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Pengaturan workspace" className="max-w-2xl">
       <div className="mb-4 flex gap-4 border-b border-line text-[13px]">
-        {(['members', 'agents'] as const).map((t) => (
+        {tabs.map((t) => (
           <button key={t} onClick={() => setTab(t)} className={cn('-mb-px pb-2', tab === t ? 'border-b-2 border-ink font-medium' : 'text-ink-soft')}>
-            {t === 'members' ? 'Anggota' : 'AI Agents'}
+            {TAB_LABEL[t]}
           </button>
         ))}
       </div>
-      {tab === 'members' ? <Members workspaceId={workspaceId} isAdmin={isAdmin} /> : <Agents workspaceId={workspaceId} isAdmin={isAdmin} />}
+      {tab === 'members' && <Members workspaceId={workspaceId} isAdmin={isAdmin} />}
+      {tab === 'agents' && <Agents workspaceId={workspaceId} isAdmin={isAdmin} />}
+      {tab === 'ai' && isAdmin && <AiGatewaySettings workspaceId={workspaceId} />}
     </Dialog>
   );
 }
@@ -115,6 +122,8 @@ function Members({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boole
 function Agents({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boolean }) {
   const qc = useQueryClient();
   const { data } = useAgents(workspaceId, true);
+  const { data: intelAgents } = useIntelAgents(workspaceId);
+  const intelById = new Map(intelAgents?.map((a) => [a.id, a]));
   const [form, setForm] = useState<Partial<Agent> | null>(null);
   const refresh = () => qc.invalidateQueries({ queryKey: qk.agents(workspaceId) });
   const save = async () => {
@@ -152,6 +161,7 @@ function Agents({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boolea
                 MCP key: <code>{a.mcp_agent_key}</code>
                 {a.description && ` · ${a.description}`}
               </div>
+              {a.is_active && <AgentIntelBadges agent={intelById.get(a.id)} />}
             </div>
             {isAdmin && (
               <>

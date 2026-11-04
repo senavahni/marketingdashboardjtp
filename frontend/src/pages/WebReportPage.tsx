@@ -79,6 +79,7 @@ export function WebReportPage() {
           {canCreate && (
             <button
               type="button"
+              data-tour="wr-new"
               onClick={() => setForm({ key: Date.now() })}
               className="inline-flex h-9 items-center gap-1.5 rounded-md bg-[#0F2340] px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#1a3560] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0E9384]"
             >
@@ -87,7 +88,7 @@ export function WebReportPage() {
           )}
         </header>
 
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2" data-tour="wr-toolbar">
           <select
             aria-label="Filter jenis periode"
             className={selectClass}
@@ -137,7 +138,7 @@ export function WebReportPage() {
             )}
           </EmptyState>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-line">
+          <div className="overflow-x-auto rounded-xl border border-line" data-tour="wr-list">
             <table className="w-full text-[13px]">
               <thead className="bg-[#F5F7FA] text-[11px] tracking-wide text-ink-soft uppercase">
                 <tr>

@@ -59,7 +59,8 @@ export function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 
-export async function api<T = unknown>(path: string, opts: Options = {}): Promise<T> {
+/** Fetch ber-otorisasi dengan satu kali refresh token bila 401. */
+async function authorizedFetch(path: string, opts: Options): Promise<Response> {
   const send = () => {
     const token = getToken();
     return fetch(buildUrl(path, opts.query), {
@@ -81,14 +82,28 @@ export async function api<T = unknown>(path: string, opts: Options = {}): Promis
     if (await refreshSession()) res = await send();
     else useAuth.getState().setAnonymous();
   }
-  if (res.status === 204) return undefined as T;
+  return res;
+}
+
+async function toApiError(res: Response): Promise<ApiError> {
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
-  if (!res.ok) {
-    const err = data?.error ?? {};
-    throw new ApiError(res.status, err.code ?? 'INTERNAL_ERROR', err.message ?? `Request gagal (${res.status})`, err.details);
-  }
-  return data as T;
+  const err = (text ? JSON.parse(text) : null)?.error ?? {};
+  return new ApiError(res.status, err.code ?? 'INTERNAL_ERROR', err.message ?? `Request gagal (${res.status})`, err.details);
+}
+
+export async function api<T = unknown>(path: string, opts: Options = {}): Promise<T> {
+  const res = await authorizedFetch(path, opts);
+  if (res.status === 204) return undefined as T;
+  if (!res.ok) throw await toApiError(res);
+  const text = await res.text();
+  return (text ? JSON.parse(text) : null) as T;
+}
+
+/** Unduhan file (mis. CSV) dengan header Authorization yang sama seperti `api`. */
+export async function apiBlob(path: string, opts: Options = {}): Promise<Blob> {
+  const res = await authorizedFetch(path, opts);
+  if (!res.ok) throw await toApiError(res);
+  return res.blob();
 }
 
 export function errorMessage(err: unknown): string {

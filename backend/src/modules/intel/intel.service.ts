@@ -11,6 +11,7 @@ import { RedisService } from '../../redis/redis.service';
 import { AfterCommit } from '../../utils/helpers/after-commit';
 import {
   AgentInfo,
+  IntelSource,
   agentsListSchema,
   cancelOutputSchema,
   estimateSchema,
@@ -38,6 +39,7 @@ import {
 } from './intel.schemas';
 
 const CACHE_SECONDS = 60;
+const EVENTS_LIMIT = 500;
 const ACTIVE_STATUSES: intel_job_status[] = ['queued', 'collecting', 'analyzing', 'indexing', 'cancelling'];
 const stageCapability: Record<'collect' | 'analyze', 'collect' | 'analyze'> = { collect: 'collect', analyze: 'analyze' };
 
@@ -361,6 +363,20 @@ export class IntelService {
     await this.prisma.intel_jobs.update({ where: { id: job.id }, data: { deleted_at: new Date() } });
   }
 
+  /** Log event webhook job (tab Log, M3_TASK_004); hanya metadata, tanpa payload. */
+  async events(user: AuthUser, jobId: string) {
+    this.assertEnabled();
+    const job = await this.findJob(jobId);
+    await this.access.assertWorkspace(user.id, job.workspace_id);
+    const rows = await this.prisma.mcp_webhook_events.findMany({
+      where: { job_id: jobId },
+      orderBy: { received_at: 'asc' },
+      take: EVENTS_LIMIT,
+      select: { event_id: true, event_type: true, status: true, received_at: true, processed_at: true },
+    });
+    return { data: rows };
+  }
+
   async items(user: AuthUser, jobId: string, rawQuery: unknown, requestId?: string) {
     this.assertEnabled();
     const { job, query } = await this.getItemsInput(user, jobId, rawQuery);
@@ -411,6 +427,7 @@ export class IntelService {
     const profiles = await this.cachedMcp('intel:agents', false, () => this.mcp.call('intel_agents_list', {}, agentsListSchema, requestId));
     this.assertCapability(collect.mcp_agent_key, 'collect', profiles.agents);
     this.assertCapability(analyze.mcp_agent_key, 'analyze', profiles.agents);
+    assertSourcesSupported(collect.mcp_agent_key, input.spec.sources, profiles.agents);
     return jobSpecSchema.parse({
       ...input.spec,
       stages: {
@@ -572,6 +589,7 @@ export class IntelService {
     return {
       is_active: profile.is_active,
       capabilities: profile.capabilities,
+      toolsets: profile.toolsets,
       route: profile.route,
       run_token_budget: profile.run_token_budget,
       gateway_key: profile.gateway_key,
@@ -595,6 +613,18 @@ export class IntelService {
       this.logger.debug({ key, error: (error as Error).message }, 'Cache Intel tidak dapat ditulis');
     }
     return redactGatewayKeys(result);
+  }
+}
+
+/** Toolset MCP yang dibutuhkan tiap tipe sumber (M3_TASK_008 §A; sumber kebenaran: MCP capabilities.py). */
+const SOURCE_TOOLSET: Record<IntelSource['type'], string> = { x: 'social', threads: 'social', web: 'web', trends: 'trends' };
+
+/** Agent collect harus punya toolset untuk setiap tipe sumber; MCP memvalidasi ulang saat intel_job_create. */
+export function assertSourcesSupported(agentKey: string, sources: Pick<IntelSource, 'type'>[], profiles: AgentInfo[]): void {
+  const toolsets = new Set(profiles.find((item) => item.agent_key === agentKey)?.toolsets ?? []);
+  const missing = sources.map((source) => source.type).filter((type) => !toolsets.has(SOURCE_TOOLSET[type]));
+  if (missing.length > 0) {
+    throw Errors.business(ErrorCode.AGENT_NOT_CAPABLE, `Agent pengumpul tidak mendukung sumber: ${missing.join(', ')}`, { sources: missing });
   }
 }
 

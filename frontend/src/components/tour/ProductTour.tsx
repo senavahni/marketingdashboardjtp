@@ -2,18 +2,22 @@ import { X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router';
+import { useIntelEnabled } from '../../hooks/intel-queries';
 import { useProjects } from '../../hooks/queries';
 import { useTour } from '../../lib/tour-store';
 import { cn } from '../../lib/utils';
 import { Button, IconButton } from '../ui/button';
 
-type Page = 'home' | 'brief' | 'table' | 'board' | 'timeline';
+type Page = 'home' | 'brief' | 'table' | 'board' | 'timeline' | 'web-report' | 'intel' | 'intel-sources';
+const PROJECT_PAGES: Page[] = ['brief', 'table', 'board', 'timeline'];
 
 interface TourStep {
   /** Nilai atribut `data-tour` elemen yang disorot; kosong = kartu di tengah layar. */
   target?: string;
   /** Halaman yang dibuka sebelum langkah ditampilkan (view proyek memakai proyek aktif / pertama). */
   page?: Page;
+  /** Langkah khusus Modul 3: dilewati bila modul Intel belum diaktifkan. */
+  intel?: boolean;
   title: string;
   body: ReactNode;
 }
@@ -27,7 +31,8 @@ const STEPS: TourStep[] = [
     title: 'Selamat datang di Marketing Dashboard 👋',
     body: (
       <>
-        Tutorial ini memandu Anda fitur demi fitur: workspace, proyek, empat tampilan task, dokumen brief, sampai mendelegasikan pekerjaan ke AI Agent.
+        Tutorial ini memandu Anda fitur demi fitur: workspace, proyek, empat tampilan task, dokumen brief, mendelegasikan pekerjaan ke AI Agent, Laporan
+        Performa Website, sampai Riset & Insight.
         Gunakan tombol <b>Lanjut</b> atau <K>←</K> <K>→</K>; tekan <K>Esc</K> untuk keluar.
       </>
     ),
@@ -145,6 +150,108 @@ const STEPS: TourStep[] = [
       </>
     ),
   },
+  // ----- Modul 2: Laporan Performa Website
+  {
+    target: 'nav-web-report',
+    page: 'web-report',
+    title: 'Laporan Performa Website 📊',
+    body: 'Menu ini mengubah data satu periode (pengunjung, leads, sales, omset, biaya) menjadi laporan konversi & finansial yang siap dipresentasikan.',
+  },
+  {
+    target: 'wr-new',
+    page: 'web-report',
+    title: 'Buat laporan',
+    body: (
+      <>
+        Klik <b>Laporan Baru</b>, pilih jenis periode (bulanan, kuartal, tahunan, atau custom), lalu isi angka. Hasil seperti <b>Lead CR</b>, <b>ROAS</b>, dan{' '}
+        <b>AOV</b> dihitung otomatis lengkap dengan insight.
+      </>
+    ),
+  },
+  {
+    target: 'wr-toolbar',
+    page: 'web-report',
+    title: 'Filter & bandingkan',
+    body: (
+      <>
+        Saring laporan per jenis periode atau tahun. Centang 2–12 laporan di tabel, lalu klik <b>Bandingkan</b> untuk melihat tren antar-periode dalam satu grafik.
+      </>
+    ),
+  },
+  {
+    target: 'wr-list',
+    page: 'web-report',
+    title: 'Hasil & ekspor',
+    body: (
+      <>
+        Klik baris laporan untuk membuka hasilnya: funnel, omset vs biaya, metrik, dan insight. Dari sana laporan bisa diekspor ke <b>PDF</b>, <b>PPTX</b>, <b>XLSX</b>{' '}
+        (dengan rumus), atau <b>CSV</b>. Menu <b>⋯</b> di ujung baris untuk mengubah atau menghapus.
+      </>
+    ),
+  },
+  // ----- Modul 3: Riset & Insight
+  {
+    target: 'nav-intel',
+    page: 'intel',
+    intel: true,
+    title: 'Riset & Insight 🛰️',
+    body: 'Kumpulkan percakapan dari X, Threads, halaman web, dan Google Trends, lalu biarkan AI Agent merangkum sentimen, tren, dan rekomendasinya.',
+  },
+  {
+    target: 'intel-new',
+    page: 'intel',
+    intel: true,
+    title: 'Job riset baru',
+    body: (
+      <>
+        Wizard 4 langkah: <b>Sumber & target</b> (keyword, URL) → <b>Waktu & batas</b> → <b>Agent</b> per tahap → <b>Estimasi</b> biaya & durasi. Tidak ada yang
+        dijalankan sebelum Anda melihat estimasinya; job mahal meminta konfirmasi.
+      </>
+    ),
+  },
+  {
+    target: 'intel-filters',
+    page: 'intel',
+    intel: true,
+    title: 'Pantau job',
+    body: (
+      <>
+        Daftar job memperbarui status & progres secara <b>real-time</b> — tidak perlu refresh. Saring per status atau sumber; kolom Biaya menampilkan aktual di
+        samping estimasi.
+      </>
+    ),
+  },
+  {
+    page: 'intel',
+    intel: true,
+    title: 'Detail job & laporan',
+    body: (
+      <>
+        Buka sebuah job untuk melihat <b>timeline tahap</b> (agent Kumpulkan → Analisis, progres, durasi, biaya). Tab <b>Ringkasan</b> berisi sentimen, tren,
+        rekomendasi & grafik; <b>Data mentah</b> bisa dicari, difilter, dan diekspor CSV; <b>Log</b> mencatat event dari MCP. Laporan bisa diekspor ke PDF/XLSX,
+        dan job bisa <b>Dibatalkan</b> atau <b>Diulangi</b>.
+      </>
+    ),
+  },
+  {
+    target: 'intel-sources',
+    page: 'intel',
+    intel: true,
+    title: 'Sumber & Koneksi',
+    body: 'Cek mode tiap sumber (API resmi, mode browser, atau tidak tersedia) dan status route LLM sebelum menjalankan riset.',
+  },
+  {
+    target: 'settings',
+    page: 'intel',
+    intel: true,
+    title: 'Agent & LLM Gateway',
+    body: (
+      <>
+        Di <b>Pengaturan → AI Agents</b> terlihat kapabilitas tiap agent (Kumpulkan/Analisis/Indeks). Admin bisa mengatur <b>default agent per tahap</b> dan memantau
+        key & pemakaian LLM per agent di <b>Pengaturan → AI & Gateway</b>.
+      </>
+    ),
+  },
   {
     target: 'tutorial',
     title: 'Selesai! 🎉',
@@ -155,6 +262,14 @@ const STEPS: TourStep[] = [
     ),
   },
 ];
+
+function tourDestination(page: Page, workspaceId: string, projectId: string | undefined): string {
+  if (page === 'home') return `/w/${workspaceId}`;
+  if (page === 'web-report') return `/w/${workspaceId}/web-report`;
+  if (page === 'intel') return `/w/${workspaceId}/intel`;
+  if (page === 'intel-sources') return `/w/${workspaceId}/intel/sources`;
+  return `/w/${workspaceId}/p/${projectId}?view=${page}`;
+}
 
 const CARD_W = 340;
 const GAP = 12;
@@ -216,9 +331,13 @@ export function ProductTour({ workspaceId }: { workspaceId: string }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: projects } = useProjects(workspaceId);
+  const intelEnabled = useIntelEnabled(workspaceId);
   const projectId = location.pathname.match(/\/p\/([^/]+)/)?.[1] ?? projects?.[0]?.id;
-  // Tanpa proyek, langkah-langkah halaman proyek dilewati.
-  const steps = useMemo(() => STEPS.filter((s) => !s.page || s.page === 'home' || projectId), [projectId]);
+  // Tanpa proyek, langkah halaman proyek dilewati; tanpa modul Intel, langkah Riset & Insight dilewati.
+  const steps = useMemo(
+    () => STEPS.filter((s) => (!s.page || !PROJECT_PAGES.includes(s.page) || projectId) && (!s.intel || intelEnabled)),
+    [projectId, intelEnabled],
+  );
   const index = Math.min(step, steps.length - 1);
   const current = steps[index];
   const isLast = index === steps.length - 1;
@@ -228,7 +347,7 @@ export function ProductTour({ workspaceId }: { workspaceId: string }) {
 
   useEffect(() => {
     if (!open || !current?.page) return;
-    const dest = current.page === 'home' ? `/w/${workspaceId}` : `/w/${workspaceId}/p/${projectId}?view=${current.page}`;
+    const dest = tourDestination(current.page, workspaceId, projectId);
     if (location.pathname + location.search !== dest) navigate(dest);
   }, [open, current, workspaceId, projectId, location.pathname, location.search, navigate]);
 

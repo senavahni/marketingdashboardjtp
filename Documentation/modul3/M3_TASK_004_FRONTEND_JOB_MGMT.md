@@ -1,6 +1,6 @@
 # Task: Frontend — Daftar Job, Wizard & Status Real-time
 **ID:** M3_TASK_004
-**Status:** To Do
+**Status:** In Progress (4 Nov 2026) — implementasi & Vitest selesai (`pages/Intel*.tsx`, `components/intel/`, `hooks/intel-queries.ts`, `lib/intel-wizard.ts`, `lib/intel-format.ts`; endpoint baru `GET /intel/jobs/:id/events` untuk tab Log). **Sisa:** Playwright melawan Mock MCP & uji manual di stack nyata
 **Repo:** `marketingdashboardjtp`
 **Dependencies:** M3_TASK_002, M3_TASK_003
 **Estimasi:** 4 person-days

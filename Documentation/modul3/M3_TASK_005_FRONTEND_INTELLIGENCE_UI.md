@@ -1,6 +1,6 @@
 # Task: Frontend — Laporan Insight & Raw Data Explorer
 **ID:** M3_TASK_005
-**Status:** To Do
+**Status:** In Progress (4 Nov 2026) — tab Ringkasan, Data mentah (virtual + paginasi server + ekspor CSV), ekspor PDF/XLSX (`lib/intel-export`), markdown aman (`lib/safe-markdown.ts`) & Vitest selesai. **Sisa:** Playwright (filter negatif + CSV) & uji 5.000 item di stack nyata
 **Repo:** `marketingdashboardjtp`
 **Dependencies:** M3_TASK_004
 **Estimasi:** 4 person-days

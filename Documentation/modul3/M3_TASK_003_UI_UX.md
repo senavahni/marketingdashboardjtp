@@ -1,6 +1,6 @@
 # Task: Rancangan UI/UX Modul 3
 **ID:** M3_TASK_003
-**Status:** To Do
+**Status:** Done (4 Nov 2026) — disetujui PO untuk dilanjutkan ke implementasi; ditambah §B.8 (rancangan semua state) & §B.9 (arah visual)
 **Repo:** `marketingdashboardjtp`
 **Dependencies:** M3_TASK_000 (bentuk data)
 **Estimasi:** 2 person-days
@@ -63,6 +63,21 @@ Kartu per sumber: mode (API/browser/unofficial/tidak tersedia), detail, terakhir
 
 ### B.7 Settings → AI & Gateway (admin)
 Tabel agent: nama, route, sumber key (Agent/System/Env — Env & System diberi peringatan), prefix key, status, pemakaian 7/30 hari (token, USD), error terakhir. Kartu pemakaian project Gateway per model. Bagian **Default agent per tahap**.
+
+### B.8 Rancangan state (semua layar)
+| State | Daftar job | Wizard | Detail / Ringkasan | Data mentah |
+|---|---|---|---|---|
+| Modul nonaktif (`503 FEATURE_DISABLED`) | Menu sidebar disembunyikan; URL langsung → empty state "belum diaktifkan" + petunjuk `MCP_INTEL_API_KEY` | — | sama | sama |
+| Loading | spinner tengah | spinner per langkah; estimasi "Menghitung estimasi…", konten lama diredupkan saat menghitung ulang | spinner halaman | spinner di tabel; "Memuat…" di footer saat halaman berikutnya |
+| Kosong | kartu onboarding 3 langkah (Pilih sumber → Tunjuk agent → Baca insight) + CTA; bila karena filter → "Tidak ada job yang cocok" | tidak ada agent mampu → pesan + arahan ke Pengaturan → AI Agents | job belum selesai → "Laporan muncul setelah analisis selesai" | "Tidak ada data yang cocok" |
+| Error MCP | empty state + pesan + **Coba lagi** | banner merah di atas langkah; 422 agent → kembali ke langkah Agent | banner error job (kode + pesan, saran Ulangi bila `retryable`) | pesan + **Coba lagi** (Ringkasan tetap jalan) |
+| Belum terkirim ke MCP | badge Antre | create gagal setelah job tersimpan → toast + buka job | banner kuning + tombol **Kirim ulang ke MCP** | "tersedia setelah job diterima MCP" |
+| Data kedaluwarsa (`410`) | — | — | Ringkasan tetap tampil | pesan retensi + saran **Ulangi** |
+| Parsial | — | — | banner kuning "Hasil parsial" + daftar `warnings` | normal |
+| Insight belum diambil (`insight_pending`) | — | — | "Laporan sedang disiapkan", diperbarui otomatis | normal |
+
+### B.9 Arah visual (implementasi)
+Gaya **editorial** yang sama dengan Modul 2 (eyebrow teal + judul navy besar, latar gradien kertas `#F5F7FA → putih`), dengan aksen gerak yang bermakna: kilau pada progres tahap yang berjalan, denyut pada node timeline aktif & indikator "Sedang berjalan" (keduanya mati pada `prefers-reduced-motion`). Kartu sumber berwarna per sumber (garis tepi = warna sumber), stepper wizard berupa garis progres, kartu KPI dengan aksen atas sesuai makna (warna sentimen dominan, net sentiment ±).
 
 ## C. Aksesibilitas & responsif
 - Semua grafik punya tabel/teks alternatif; stepper dapat dinavigasi keyboard; fokus kembali ke pemicu saat dialog ditutup.

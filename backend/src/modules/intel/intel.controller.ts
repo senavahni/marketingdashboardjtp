@@ -137,6 +137,11 @@ export class IntelController {
     return this.intel.items(user, jobId, query, requestId);
   }
 
+  @Get('intel/jobs/:id/events')
+  events(@CurrentUser() user: AuthUser, @Param('id', UuidPipe) jobId: string) {
+    return this.intel.events(user, jobId);
+  }
+
   @Get('intel/jobs/:id')
   get(@CurrentUser() user: AuthUser, @Param('id', UuidPipe) jobId: string, @Headers('x-request-id') requestId?: string) {
     return this.intel.get(user, jobId, requestId);

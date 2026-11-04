@@ -1,6 +1,6 @@
 # Task: Key LLM Gateway per Agent, Atribusi Biaya & Halaman AI & Gateway
 **ID:** M3_TASK_009
-**Status:** To Do
+**Status:** In Progress (4 Nov 2026). Kode MCP & Dashboard sudah selesai: `secretbox`, `mcp.llm_credentials` (migrasi `0004` diterapkan), `manage.py gateway-keys`, pemilihan key agent → system → env, 401/403 → `invalid`, `intel_llm_status`, halaman Settings → AI & Gateway. **Sisa:** provisioning nyata di Gateway (butuh admin key, dijalankan user), uji manual `/admin/requests`, biaya per tahap di detail job (TASK_005), dan rotasi dari UI (P1)
 **Repo:** `llm-genai` (provisioning) + `mcp` + `marketingdashboardjtp`
 **Dependencies:** M3_TASK_007 (kolom `llm_calls`, konteks agent tahap)
 **Estimasi:** 3 person-days (+1 pd rotasi dari UI, P1)
