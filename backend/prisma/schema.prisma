@@ -82,6 +82,32 @@ enum entity_type {
   member
 }
 
+enum intel_job_status {
+  queued
+  collecting
+  analyzing
+  indexing
+  completed
+  failed
+  cancelling
+  cancelled
+}
+
+enum intel_stage {
+  collect
+  analyze
+  index
+}
+
+enum intel_stage_status {
+  pending
+  running
+  completed
+  skipped
+  failed
+  cancelled
+}
+
 model users {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email         String    @unique @db.Citext
@@ -105,6 +131,8 @@ model users {
   dispatched_runs     agent_runs[]          @relation("run_dispatcher")
   web_reports_created web_report_sessions[] @relation("web_report_creator")
   web_reports_updated web_report_sessions[] @relation("web_report_updater")
+  intel_jobs_created intel_jobs[]          @relation("intel_job_creator")
+  intel_stage_defaults_updated intel_stage_defaults[] @relation("intel_stage_default_updater")
 }
 
 model refresh_tokens {
@@ -144,6 +172,8 @@ model workspaces {
   notifications notifications[]
   agent_runs    agent_runs[]
   web_reports   web_report_sessions[]
+  intel_jobs    intel_jobs[]
+  intel_stage_defaults intel_stage_defaults[]
 }
 
 model workspace_members {
@@ -179,6 +209,8 @@ model agents {
   assigned_tasks tasks[]      @relation("task_assignee_agent")
   comments       comments[]   @relation("comment_author_agent")
   agent_runs     agent_runs[]
+  intel_job_stages intel_job_stages[]
+  intel_stage_defaults intel_stage_defaults[]
 }
 
 model projects {
@@ -359,6 +391,7 @@ model agent_runs {
 model mcp_webhook_events {
   event_id     String    @id @db.Uuid
   run_id       String?   @db.Uuid
+  job_id       String?   @db.Uuid
   event_type   String    @db.VarChar(64)
   status       String    @default("processing") @db.VarChar(16)
   error        Json?
@@ -366,6 +399,94 @@ model mcp_webhook_events {
   processed_at DateTime? @db.Timestamptz(6)
 
   run agent_runs? @relation(fields: [run_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  intel_job intel_jobs? @relation(fields: [job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model intel_jobs {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id         String           @db.Uuid
+  title                String           @db.VarChar(150)
+  status               intel_job_status @default(queued)
+  spec                 Json
+  sources              String[]
+  confirm_cost         Boolean          @default(false)
+  requested_by_name    String           @default("") @db.VarChar(100)
+  estimate             Json?
+  mcp_job_id           String?          @unique @db.VarChar(32)
+  last_event_sequence  Int              @default(0)
+  total_items          Int?
+  items_handle         String?          @db.VarChar(32)
+  items_expire_at      DateTime?        @db.Timestamptz(6)
+  cost                 Json?
+  error                Json?
+  retry_of_job_id      String?          @db.Uuid
+  created_by           String?          @db.Uuid
+  started_at           DateTime?        @db.Timestamptz(6)
+  finished_at          DateTime?        @db.Timestamptz(6)
+  insight_pending      Boolean          @default(false)
+  terminal_notified_at DateTime?        @db.Timestamptz(6)
+  created_at           DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at           DateTime?        @db.Timestamptz(6)
+
+  workspace     workspaces             @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator       users?                 @relation("intel_job_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  retry_of      intel_jobs?            @relation("intel_job_retry", fields: [retry_of_job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  retries       intel_jobs[]           @relation("intel_job_retry")
+  stages        intel_job_stages[]
+  insight       intel_insights?
+  webhook_events mcp_webhook_events[]
+
+  @@index([workspace_id, created_at(sort: Desc)], map: "intel_jobs_ws_idx")
+  @@index([status, updated_at], map: "intel_jobs_active_idx")
+}
+
+model intel_job_stages {
+  job_id         String             @db.Uuid
+  stage          intel_stage
+  agent_id       String             @db.Uuid
+  agent_key      String             @db.VarChar(100)
+  status         intel_stage_status @default(pending)
+  progress_done  Int                @default(0)
+  progress_total Int?
+  stats          Json?
+  error          Json?
+  started_at     DateTime?          @db.Timestamptz(6)
+  finished_at    DateTime?          @db.Timestamptz(6)
+
+  job   intel_jobs @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  agent agents     @relation(fields: [agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([job_id, stage])
+}
+
+model intel_insights {
+  job_id          String   @id @db.Uuid
+  summary_md      String?
+  recommendations Json     @default("[]")
+  sentiment       Json?
+  trends          Json?
+  volume_by_day   Json?
+  google_trends   Json?
+  partial         Boolean  @default(false)
+  warnings        Json     @default("[]")
+  generated_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  job intel_jobs @relation(fields: [job_id], references: [id], onDelete: Cascade)
+}
+
+model intel_stage_defaults {
+  workspace_id String      @db.Uuid
+  stage         intel_stage
+  agent_id      String      @db.Uuid
+  updated_by    String?     @db.Uuid
+  updated_at    DateTime    @default(now()) @updatedAt @db.Timestamptz(6)
+
+  workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  agent     agents     @relation(fields: [agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updater   users?     @relation("intel_stage_default_updater", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([workspace_id, stage])
 }
 
 // ===== Modul 2: Laporan Performa Website (M2_TASK_001) =====

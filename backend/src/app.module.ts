@@ -17,6 +17,7 @@ import { BlocksModule } from './modules/blocks/blocks.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { CoreModule } from './modules/core/core.module';
 import { HealthModule } from './modules/health/health.module';
+import { IntelModule } from './modules/intel/intel.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
@@ -56,6 +57,7 @@ import { buildLoggerParams } from './utils/logger/logger.config';
     McpApiModule,
     // Modul 2
     WebReportsModule,
+    IntelModule,
     HealthModule,
   ],
   providers: [

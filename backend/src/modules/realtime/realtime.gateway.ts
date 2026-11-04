@@ -15,7 +15,7 @@ import { AccessService } from '../core/access.service';
 import { rooms } from './realtime.events';
 import { RealtimeService } from './realtime.service';
 
-const roomSchema = z.object({ type: z.enum(['project', 'task']), id: z.uuid() });
+const roomSchema = z.object({ type: z.enum(['project', 'task', 'workspace']), id: z.uuid() });
 type Ack = { ok: true } | { ok: false; error: string };
 
 const corsOrigins = (process.env.APP_URL ?? 'http://localhost:5173').split(',').map((s) => s.trim());
@@ -68,8 +68,15 @@ export class RealtimeGateway implements OnGatewayInit<Namespace>, OnGatewayConne
     if (!userId) return { ok: false, error: 'UNAUTHENTICATED' };
     try {
       if (parsed.data.type === 'project') await this.access.assertProject(userId, parsed.data.id);
-      else await this.access.assertTask(userId, parsed.data.id);
-      await client.join(parsed.data.type === 'project' ? rooms.project(parsed.data.id) : rooms.task(parsed.data.id));
+      else if (parsed.data.type === 'task') await this.access.assertTask(userId, parsed.data.id);
+      else await this.access.assertWorkspace(userId, parsed.data.id);
+      await client.join(
+        parsed.data.type === 'project'
+          ? rooms.project(parsed.data.id)
+          : parsed.data.type === 'task'
+            ? rooms.task(parsed.data.id)
+            : rooms.workspace(parsed.data.id),
+      );
       return { ok: true };
     } catch (err) {
       return { ok: false, error: err instanceof AppException ? err.code : 'INTERNAL_ERROR' };
@@ -80,7 +87,13 @@ export class RealtimeGateway implements OnGatewayInit<Namespace>, OnGatewayConne
   async leave(@ConnectedSocket() client: Socket, @MessageBody() body: unknown): Promise<Ack> {
     const parsed = roomSchema.safeParse(body);
     if (!parsed.success) return { ok: false, error: 'VALIDATION_ERROR' };
-    await client.leave(parsed.data.type === 'project' ? rooms.project(parsed.data.id) : rooms.task(parsed.data.id));
+    await client.leave(
+      parsed.data.type === 'project'
+        ? rooms.project(parsed.data.id)
+        : parsed.data.type === 'task'
+          ? rooms.task(parsed.data.id)
+          : rooms.workspace(parsed.data.id),
+    );
     return { ok: true };
   }
 }

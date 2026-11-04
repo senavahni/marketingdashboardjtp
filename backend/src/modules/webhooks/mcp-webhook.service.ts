@@ -5,7 +5,15 @@ import { AppException, Errors } from '../../common/exceptions/app.exception';
 import { Actor } from '../../common/types/request.types';
 import { PrismaService, Tx } from '../../database/prisma.service';
 import { agents, agent_runs, Prisma, tasks } from '../../generated/prisma/client';
-import { EventData, eventDataSchemas, McpEventType, WebhookEnvelope, webhookEnvelopeSchema } from '../../shared/schemas/mcp.schema';
+import {
+  EventData,
+  eventDataSchemas,
+  McpEventType,
+  McpWebhookEnvelope,
+  WebhookEnvelope,
+  mcpWebhookEnvelopeSchema,
+  webhookEnvelopeSchema,
+} from '../../shared/schemas/mcp.schema';
 import { AfterCommit } from '../../utils/helpers/after-commit';
 import { excerpt } from '../../utils/helpers/text.util';
 import { ActivityService } from '../activity/activity.service';
@@ -19,6 +27,8 @@ import { TaskHierarchy } from '../tasks/task-hierarchy.repository';
 import { TaskReaderService } from '../tasks/task-reader.service';
 import { ACTIVE_RUN_STATUS_LIST } from '../tasks/task.mapper';
 import { TasksService } from '../tasks/tasks.service';
+import { isIntelEventBody } from '../../shared/schemas/intel.schema';
+import { IntelEventService } from '../intel/intel-event.service';
 
 type RunCtx = agent_runs & { agent: agents; workspace: { id: string; timezone: string } };
 
@@ -52,12 +62,23 @@ export class McpWebhookService {
     private readonly activity: ActivityService,
     private readonly realtime: RealtimeService,
     private readonly reader: TaskReaderService,
+    private readonly intelEvents: IntelEventService,
   ) {}
 
   async handle(body: unknown): Promise<{ status: 'processed' | 'duplicate'; result?: unknown }> {
-    const envParsed = webhookEnvelopeSchema.safeParse(body);
+    const unionParsed = mcpWebhookEnvelopeSchema.safeParse(body);
+    if (!unionParsed.success) {
+      throw Errors.validation('Envelope webhook tidak valid', {
+        issues: unionParsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+      });
+    }
+    if (isIntelEventBody(unionParsed.data)) return this.intelEvents.handle(unionParsed.data);
+    const envelope: McpWebhookEnvelope = unionParsed.data;
+    const envParsed = webhookEnvelopeSchema.safeParse(envelope);
     if (!envParsed.success) {
-      throw Errors.validation('Envelope webhook tidak valid', { issues: envParsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
+      throw Errors.validation('Envelope webhook tidak valid', {
+        issues: envParsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+      });
     }
     const env = envParsed.data;
     const dataParsed = eventDataSchemas[env.event_type].safeParse(env.data);
@@ -92,7 +113,9 @@ export class McpWebhookService {
       return { status: 'processed', result };
     } catch (err) {
       const error =
-        err instanceof AppException ? { code: err.code, message: err.message } : { code: 'INTERNAL_ERROR', message: (err as Error).message };
+        err instanceof AppException
+          ? { code: err.code, message: err.message }
+          : { code: 'INTERNAL_ERROR', message: (err as Error).message };
       await this.prisma.mcp_webhook_events
         .update({ where: { event_id: env.event_id }, data: { status: 'rejected', error, processed_at: new Date() } })
         .catch(() => undefined);
@@ -172,7 +195,10 @@ export class McpWebhookService {
     if (run.task_id) {
       const t = await tx.tasks.findUniqueOrThrow({ where: { id: run.task_id } });
       const toInProgress = run.trigger === 'assignment' && t.status === 'todo';
-      await tx.tasks.update({ where: { id: run.task_id }, data: { agent_status: 'working', ...(toInProgress ? { status: 'in_progress' } : {}) } });
+      await tx.tasks.update({
+        where: { id: run.task_id },
+        data: { agent_status: 'working', ...(toInProgress ? { status: 'in_progress' } : {}) },
+      });
       this.emitTaskUpdated(effects, run.project_id, run.task_id, toInProgress ? ['status', 'agent_status'] : ['agent_status'], agent);
     }
     await this.logRun(ctx, 'agent.started');
@@ -190,20 +216,35 @@ export class McpWebhookService {
   private async onBlockAppended(ctx: HandlerContext, data: EventData<'agent.block.appended'>) {
     const { tx, run, task, agent, effects } = ctx;
     const project = await tx.projects.findUniqueOrThrow({ where: { id: run.project_id }, select: { title: true } });
-    const scope: BlockScope = { workspaceId: run.workspace_id, projectId: run.project_id, taskId: task?.id ?? null, title: task?.title ?? project.title };
+    const scope: BlockScope = {
+      workspaceId: run.workspace_id,
+      projectId: run.project_id,
+      taskId: task?.id ?? null,
+      title: task?.title ?? project.title,
+    };
 
     const ops: BlockOperation[] = data.operations.map((o) =>
       o.op === 'append'
         ? {
             op: 'upsert',
             mode: 'insert',
-            block: { id: o.block.id ?? randomUUID(), parent_block_id: o.block.parent_block_id, block_type: o.block.block_type, content_json: o.block.content_json },
+            block: {
+              id: o.block.id ?? randomUUID(),
+              parent_block_id: o.block.parent_block_id,
+              block_type: o.block.block_type,
+              content_json: o.block.content_json,
+            },
             after_block_id: o.after_block_id ?? null,
           }
         : {
             op: 'upsert',
             mode: 'update',
-            block: { id: o.block.id, parent_block_id: o.block.parent_block_id, block_type: o.block.block_type, content_json: o.block.content_json },
+            block: {
+              id: o.block.id,
+              parent_block_id: o.block.parent_block_id,
+              block_type: o.block.block_type,
+              content_json: o.block.content_json,
+            },
             expected_version: o.expected_version,
           },
     );
@@ -219,7 +260,13 @@ export class McpWebhookService {
         entityId: task?.id ?? run.project_id,
         action: 'block.agent_updated',
         actor: agent,
-        metadata: { run_id: run.id, block_ids: result.applied.map((a) => a.id), appended, updated: data.operations.length - appended, task_id: task?.id ?? null },
+        metadata: {
+          run_id: run.id,
+          block_ids: result.applied.map((a) => a.id),
+          appended,
+          updated: data.operations.length - appended,
+          task_id: task?.id ?? null,
+        },
       },
       effects,
     );
@@ -280,7 +327,11 @@ export class McpWebhookService {
         await this.blocks.applyOperations(
           tx,
           blockScope,
-          s.initial_blocks.map((b) => ({ op: 'upsert', mode: 'insert', block: { id: randomUUID(), block_type: b.block_type, content_json: b.content_json } })),
+          s.initial_blocks.map((b) => ({
+            op: 'upsert',
+            mode: 'insert',
+            block: { id: randomUUID(), block_type: b.block_type, content_json: b.content_json },
+          })),
           agent,
           { requireVersionForUpdate: false },
         );
@@ -371,7 +422,9 @@ export class McpWebhookService {
       effects,
     );
     const dto = this.comments.toDto(comment, new Map());
-    effects.add(() => this.realtime.toProjectAndTask(run.project_id, task?.id ?? null, RealtimeEvent.COMMENT_CREATED, { comment: dto }, { actor: agent }));
+    effects.add(() =>
+      this.realtime.toProjectAndTask(run.project_id, task?.id ?? null, RealtimeEvent.COMMENT_CREATED, { comment: dto }, { actor: agent }),
+    );
     return { comment_id: comment.id };
   }
 
@@ -417,7 +470,9 @@ export class McpWebhookService {
 
   private async onFailed(ctx: HandlerContext, data: EventData<'agent.task.failed'>) {
     const { tx, run, effects } = ctx;
-    await this.runs.failRun(tx, run, { code: data.error_code, message: data.message, retryable: data.retryable }, effects, { systemComment: true });
+    await this.runs.failRun(tx, run, { code: data.error_code, message: data.message, retryable: data.retryable }, effects, {
+      systemComment: true,
+    });
     return {};
   }
 
@@ -447,7 +502,8 @@ export class McpWebhookService {
   private emitTaskUpdated(effects: AfterCommit, projectId: string, taskId: string, changed: string[], actor: Actor): void {
     effects.add(async () => {
       const dto = await this.reader.getDto(taskId);
-      if (dto) this.realtime.toProjectAndTask(projectId, taskId, RealtimeEvent.TASK_UPDATED, { task: dto, changed_fields: changed }, { actor });
+      if (dto)
+        this.realtime.toProjectAndTask(projectId, taskId, RealtimeEvent.TASK_UPDATED, { task: dto, changed_fields: changed }, { actor });
     });
   }
 }

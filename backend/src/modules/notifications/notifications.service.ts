@@ -9,7 +9,14 @@ import { ActorService } from '../core/actor.service';
 import { RealtimeEvent } from '../realtime/realtime.events';
 import { RealtimeService } from '../realtime/realtime.service';
 
-export type NotificationType = 'task_assigned' | 'comment_mention' | 'agent_comment' | 'agent_task_completed' | 'agent_task_failed';
+export type NotificationType =
+  | 'task_assigned'
+  | 'comment_mention'
+  | 'agent_comment'
+  | 'agent_task_completed'
+  | 'agent_task_failed'
+  | 'intel_job_completed'
+  | 'intel_job_failed';
 
 export interface NotifyInput {
   recipients: (string | null | undefined)[];

@@ -62,12 +62,23 @@ async function main(): Promise<void> {
   for (const a of [
     { id: SEED_IDS.strategist, name: 'Agent_Strategist', handle: 'Agent_Strategist', key: 'strategist', desc: 'Menyusun strategi & kalender konten' },
     { id: SEED_IDS.researcher, name: 'Agent_Researcher', handle: 'Agent_Researcher', key: 'researcher', desc: 'Riset pasar & kompetitor' },
+    { id: SEED_IDS.analyst, name: 'Agent_Analyst', handle: 'Agent_Analyst', key: 'analyst', desc: 'Menganalisis sentimen & tren' },
     { id: SEED_IDS.mcpAssistant, name: 'MCP_Assistant', handle: 'MCP_Assistant', key: 'assistant', desc: 'Aktor Service API default untuk klien MCP eksternal' },
   ]) {
     await prisma.agents.upsert({
       where: { id: a.id },
       create: { id: a.id, workspace_id: SEED_IDS.wsDemo, name: a.name, handle: a.handle, mcp_agent_key: a.key, description: a.desc, created_by: SEED_IDS.owner },
       update: a.key === 'assistant' ? { is_active: true, deleted_at: null } : {},
+    });
+  }
+  for (const [stage, agentId] of [
+    ['collect', SEED_IDS.researcher],
+    ['analyze', SEED_IDS.analyst],
+  ] as const) {
+    await prisma.intel_stage_defaults.upsert({
+      where: { workspace_id_stage: { workspace_id: SEED_IDS.wsDemo, stage } },
+      create: { workspace_id: SEED_IDS.wsDemo, stage, agent_id: agentId, updated_by: SEED_IDS.owner },
+      update: { agent_id: agentId, updated_by: SEED_IDS.owner },
     });
   }
 

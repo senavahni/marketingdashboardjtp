@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { dateString, taskPriority, uuid } from './common.schema';
+import { intelEventEnvelopeSchema } from './intel.schema';
 
 /** Kontrak MCP v1 (M1_MCP_INTEGRATION). */
 
@@ -25,6 +26,8 @@ export const webhookEnvelopeSchema = z.object({
   data: z.record(z.string(), z.unknown()).default({}),
 });
 export type WebhookEnvelope = z.infer<typeof webhookEnvelopeSchema>;
+export const mcpWebhookEnvelopeSchema = z.union([webhookEnvelopeSchema, intelEventEnvelopeSchema]);
+export type McpWebhookEnvelope = z.infer<typeof mcpWebhookEnvelopeSchema>;
 
 const blockInput = z.object({
   id: uuid.optional(),
@@ -63,7 +66,10 @@ export const eventDataSchemas = {
           end_date: dateString.nullable().optional(),
           tags: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
           assign_to_self: z.boolean().default(false),
-          initial_blocks: z.array(z.object({ block_type: z.string().max(32), content_json: z.unknown() })).max(50).optional(),
+          initial_blocks: z
+            .array(z.object({ block_type: z.string().max(32), content_json: z.unknown() }))
+            .max(50)
+            .optional(),
         }),
       )
       .min(1)
@@ -72,7 +78,10 @@ export const eventDataSchemas = {
   'agent.comment.added': z.object({
     content: z.string().trim().min(1).max(10_000),
     parent_comment_id: uuid.nullable().optional(),
-    mentions: z.array(z.object({ type: z.enum(['user', 'agent']), id: uuid })).max(50).optional(),
+    mentions: z
+      .array(z.object({ type: z.enum(['user', 'agent']), id: uuid }))
+      .max(50)
+      .optional(),
   }),
   'agent.task.completed': z.object({ summary: z.string().max(10_000).nullable().optional() }),
   'agent.task.failed': z.object({

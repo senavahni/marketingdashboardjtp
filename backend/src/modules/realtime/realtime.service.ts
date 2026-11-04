@@ -46,13 +46,19 @@ export class RealtimeService {
     this.emit([rooms.user(userId)], event, payload);
   }
 
-  /** Keluarkan socket user dari semua room project/task (dipakai saat member dihapus). */
+  toWorkspace(workspaceId: string, event: RealtimeEventName, payload: Record<string, unknown>): void {
+    this.emit([rooms.workspace(workspaceId)], event, payload);
+  }
+
+  /** Keluarkan socket user dari resource room (dipakai saat member dihapus). */
   async evictUserFromResourceRooms(userId: string): Promise<void> {
     if (!this.server) return;
     try {
       const sockets = await this.server.in(rooms.user(userId)).fetchSockets();
       for (const s of sockets) {
-        for (const room of s.rooms) if (room.startsWith('project:') || room.startsWith('task:')) s.leave(room);
+        for (const room of s.rooms) {
+          if (room.startsWith('project:') || room.startsWith('task:') || room.startsWith('workspace:')) s.leave(room);
+        }
       }
     } catch (err) {
       this.logger.warn(`Gagal mengeluarkan user dari room: ${(err as Error).message}`);

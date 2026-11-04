@@ -22,6 +22,10 @@ export const envSchema = z.object({
 
   MCP_SERVER_URL: z.url().default('http://localhost:4100/mcp'),
   MCP_SERVER_API_KEY: secret('MCP_SERVER_API_KEY'),
+  MCP_INTEL_API_KEY: z
+    .string()
+    .regex(/^mcpk_[a-z0-9]{8}_[A-Za-z0-9_-]{43}$/, 'format key harus mcpk_<prefix8>_<secret43>')
+    .optional(),
   MCP_WEBHOOK_SECRET: secret('MCP_WEBHOOK_SECRET'),
   MCP_WEBHOOK_SECRET_PREVIOUS: z.string().optional(),
   MCP_SERVICE_TOKEN: secret('MCP_SERVICE_TOKEN'),

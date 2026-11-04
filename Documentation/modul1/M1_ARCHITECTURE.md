@@ -265,6 +265,7 @@ Worker berjalan di proses yang sama dengan API untuk M1 (bisa dipisah dengan env
 | `COOKIE_SECURE` | `false` | `true` di staging/produksi |
 | `MCP_SERVER_URL` | `http://localhost:4100/mcp` | Endpoint Streamable HTTP MCP Server |
 | `MCP_SERVER_API_KEY` | *(random)* | Dashboard → MCP (Bearer) |
+| `MCP_INTEL_API_KEY` | *(opsional)* | Key klien `dashboard-intel`, toolset `intel` saja; tanpa key, Modul 3 merespons `FEATURE_DISABLED` |
 | `MCP_WEBHOOK_SECRET` | *(random)* | HMAC webhook MCP → Dashboard |
 | `MCP_SERVICE_TOKEN` | *(random)* | MCP → Agent API (Bearer) |
 | `MCP_CALL_TIMEOUT_MS` | `15000` | Timeout tool async (dispatch, mention, cancel) |

@@ -21,4 +21,8 @@ export class AppConfigService {
   get apiBaseUrl(): string {
     return `${this.env.PUBLIC_API_URL.replace(/\/$/, '')}/api/v1`;
   }
+
+  get isIntelEnabled(): boolean {
+    return !!this.env.MCP_INTEL_API_KEY;
+  }
 }

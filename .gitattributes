@@ -1,0 +1,3 @@
+# Fixture kontrak dibandingkan per byte (SHA256SUMS) dengan salinan di repo MCP:
+# jangan biarkan core.autocrlf mengubah line ending (LF dari generator).
+contracts/** -text
