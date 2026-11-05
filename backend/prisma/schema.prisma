@@ -569,6 +569,11 @@ model agent_missions {
   root_task_id          String?          @unique(map: "agent_missions_root_task_key") @db.Uuid
   cost_usd              Float            @default(0)
   planning_started_at   DateTime?        @db.Timestamptz(6)
+  execution_enabled     Boolean          @default(true)
+  max_runs              Int              @default(10)
+  runs_dispatched       Int              @default(0)
+  task_map              Json?
+  completed_at          DateTime?        @db.Timestamptz(6)
   created_by            String?          @db.Uuid
   created_at            DateTime         @default(now()) @db.Timestamptz(6)
   updated_at            DateTime         @default(now()) @updatedAt @db.Timestamptz(6)

@@ -113,4 +113,4 @@ Sama dengan [Modul 1 README §5](../modul1/README.md#5-definition-of-done-berlak
 | 011 | ✅ Selesai — proyeksi PCA `intel_kb_projection`, `sample_tokens` real-time, tombol Tampilan 3D (lazy, fallback 2D). Sisa: ukur fps/memori di iGPU target |
 | 006, 012 | Belum dimulai |
 | 013 | ✅ Selesai — job riset → task induk + subtask tahap di Penjadwalan (sinkron real-time), rencana tindak lanjut agent (`intel_mission_plan`) mode auto/review, approve/revisi/batal; diuji MCP, Jest, Vitest, Playwright E2E-M3-09 |
-| 014 | Dokumen disusun (5 Nov 2026); implementasi belum dimulai. Memakai misi & planner TASK_013 + fondasi Modul 2 (`mcp-api`, toolset `task`, runtime agent + budget) |
+| 014 | ✅ Selesai (5 Nov 2026) — Fase A: halaman Misi Agent + form Perintah ke Agent → rencana di project AI (auto/tinjau), E2E-M3-10. Fase B: penjadwal assign task `eksekutor:agent` ke run Modul 2 (≤ 2 aktif, kuota run, dependensi), jeda/lanjut/batal, progres, misi `completed`. Belum: re-plan otomatis & budget USD per misi |

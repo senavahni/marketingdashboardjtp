@@ -34,7 +34,7 @@ export interface WizardDraft {
   saveToKb: boolean;
   agents: { collect: string; analyze: string; index?: string };
   /** Masukkan ke Penjadwalan (M3_TASK_013); `projectId` = NEW_AI_PROJECT → project baru dibuat agent. */
-  schedule: { enabled: boolean; projectId: string; start: string; end: string; mode: 'auto' | 'review' };
+  schedule: { enabled: boolean; projectId: string; start: string; end: string; mode: 'auto' | 'review'; execute: boolean };
 }
 
 export const NEW_AI_PROJECT = 'new';
@@ -74,6 +74,7 @@ export function emptyDraft(today = new Date()): WizardDraft {
       start: isoDay(today),
       end: isoDay(new Date(today.getTime() + (SCHEDULE_DEFAULT_DAYS - 1) * DAY_MS)),
       mode: 'auto',
+      execute: true,
     },
   };
 }
@@ -174,6 +175,7 @@ export function draftToSchedule({ schedule: s }: WizardDraft): ScheduleInput | u
     ...(s.projectId === NEW_AI_PROJECT ? {} : { project_id: s.projectId }),
     period: { start_date: s.start, end_date: s.end },
     approval_mode: s.mode,
+    execution_enabled: s.execute,
   };
 }
 

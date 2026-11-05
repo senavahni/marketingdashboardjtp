@@ -281,6 +281,8 @@ test('E2E-M3-09 masukkan ke Penjadwalan: subtask tahap ikut job → agent menuli
   await expect(wizard.getByRole('checkbox', { name: /Masukkan ke Penjadwalan/ })).toBeChecked();
   await expect(wizard.getByRole('combobox', { name: /Project/ })).toHaveValue('new');
   await expect(wizard.getByRole('radiogroup', { name: 'Mode rencana' }).getByRole('radio', { name: /Langsung jalan/ })).toBeChecked();
+  // eksekusi agent (Fase B) diuji terpisah: di sini matikan agar suite tidak memicu run agent berbayar
+  await wizard.getByRole('checkbox', { name: /Agent mengerjakan task bagiannya/ }).uncheck();
   await wizard.getByRole('button', { name: 'Lanjut' }).click();
   const run = wizard.getByRole('button', { name: 'Jalankan riset' });
   await expect(run).toBeEnabled({ timeout: 45_000 });
@@ -315,6 +317,46 @@ test('E2E-M3-09 masukkan ke Penjadwalan: subtask tahap ikut job → agent menuli
 
   await card.getByRole('link', { name: /Buka di Penjadwalan/ }).click();
   await page.waitForURL(new RegExp(`/w/${WS}/p/${mission.data.project_id}`));
+});
+
+test('E2E-M3-10 Perintah ke Agent: form → rencana (tinjau dulu) → setujui → task di project AI (M3_TASK_014 Fase A)', async () => {
+  test.setTimeout(PLAN_TIMEOUT_MS + 60_000);
+  await page.goto(`/w/${WS}/intel`);
+  await page.getByRole('link', { name: 'Misi Agent' }).click();
+  await expect(page.getByRole('heading', { name: 'Misi Agent' })).toBeVisible();
+  await page.getByRole('button', { name: 'Perintah ke Agent' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Perintah ke Agent' });
+  await dialog.getByRole('button', { name: 'Kirim perintah' }).click();
+  await expect(dialog.getByText('Judul wajib diisi')).toBeVisible(); // validasi klien
+
+  const title = `E2E Misi ${RUN}`;
+  await dialog.getByLabel('Judul misi').fill(title);
+  await dialog.getByLabel('Perintah').fill('Siapkan 3 konten edukasi kopi susu untuk Instagram, termasuk riset singkat dan jadwal unggah.');
+  await expect(dialog.getByRole('combobox', { name: /Project/ })).toHaveValue('new');
+  await dialog.getByText('Tinjau dulu', { exact: true }).click();
+  await dialog.getByRole('checkbox', { name: /Agent mengerjakan task bagiannya/ }).uncheck(); // tanpa run agent berbayar
+  await dialog.getByRole('button', { name: 'Kirim perintah' }).click();
+
+  await page.waitForURL(new RegExp(`/w/${WS}/intel/missions/[0-9a-f-]{36}$`));
+  const missionId = page.url().split('/').pop() as string;
+  await expect(page.getByRole('heading', { name: title })).toBeVisible();
+  const plan = page.getByRole('list', { name: 'Rencana task' });
+  await expect(plan).toBeVisible({ timeout: PLAN_TIMEOUT_MS });
+  const mission = (await (await api.get(`/api/v1/missions/${missionId}`, { headers: auth('member') })).json()) as {
+    project_id: string;
+    root_task_id: string;
+    status: string;
+    source: string;
+  };
+  aiProjects.push(mission.project_id);
+  expect(mission).toMatchObject({ status: 'awaiting_review', source: 'manual' });
+  const before = (await (await api.get(`/api/v1/tasks/${mission.root_task_id}`, { headers: auth('member') })).json()) as { subtasks: unknown[] };
+  expect(before.subtasks).toHaveLength(0); // belum ada task sebelum disetujui
+
+  await page.getByRole('button', { name: 'Setujui' }).click();
+  await expect(page.getByText('Terjadwal di Penjadwalan')).toBeVisible({ timeout: 30_000 });
+  const after = (await (await api.get(`/api/v1/tasks/${mission.root_task_id}`, { headers: auth('member') })).json()) as { subtasks: unknown[] };
+  expect(after.subtasks.length).toBeGreaterThan(0);
 });
 
 test('E2E-M3-06 AI & Gateway: admin melihat key per agent; member tidak punya akses', async ({ browser }) => {

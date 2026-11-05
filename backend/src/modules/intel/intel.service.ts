@@ -32,6 +32,7 @@ import { AccessService } from '../core/access.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { IntelMcpClient } from './intel-mcp-client.service';
 import { csvCell } from './intel-csv';
+import { CreateMissionInput } from '../../shared/schemas/mission.schema';
 import { MissionService } from './mission.service';
 import { PLANNER_TOOLSET, pickPlanner } from './mission.rules';
 import { redactGatewayKeys } from './intel-sanitizer';
@@ -266,8 +267,13 @@ export class IntelService {
           },
         },
       });
+      const stages = [
+        { stage: 'collect' as const, agent: collect },
+        { stage: 'analyze' as const, agent: analyze },
+        ...(index ? [{ stage: 'index' as const, agent: index }] : []),
+      ];
+      const workspace = await tx.workspaces.findUniqueOrThrow({ where: { id: workspaceId }, select: { timezone: true } });
       if (input.schedule && plannerId) {
-        const workspace = await tx.workspaces.findUniqueOrThrow({ where: { id: workspaceId }, select: { timezone: true } });
         await this.missions.createForIntelJobInTx(
           tx,
           {
@@ -275,14 +281,17 @@ export class IntelService {
             job: { id: job.id, title: spec.title },
             schedule: input.schedule,
             plannerAgentId: plannerId,
-            stages: [
-              { stage: 'collect', agent: collect },
-              { stage: 'analyze', agent: analyze },
-              ...(index ? [{ stage: 'index' as const, agent: index }] : []),
-            ],
+            stages,
             user,
             timezone: workspace.timezone,
           },
+          effects,
+        );
+      } else if (input.retry_of_job_id) {
+        // Ulangi: penjadwalan job lama (bila belum menulis rencana) ikut pindah ke job baru
+        await this.missions.reattachInTx(
+          tx,
+          { oldJobId: input.retry_of_job_id, newJobId: job.id, workspaceId, user, timezone: workspace.timezone, stages },
           effects,
         );
       }
@@ -580,6 +589,18 @@ export class IntelService {
         ...(index ? { index: { agent_key: index.mcp_agent_key, enabled: true } } : {}),
       },
     });
+  }
+
+  /** "Perintah ke Agent" (M3_TASK_014 Fase A): buat misi manual lalu planning di latar belakang. */
+  async createMission(user: AuthUser, workspaceId: string, input: CreateMissionInput, requestId?: string) {
+    this.assertEnabled();
+    await this.access.assertWorkspace(user.id, workspaceId, 'member');
+    const plannerAgentId = await this.resolvePlanner(workspaceId, input.planner_agent_id, requestId);
+    const effects = new AfterCommit();
+    const missionId = await this.prisma.tx((tx) => this.missions.createManualInTx(tx, { workspaceId, user, plannerAgentId, input }, effects));
+    await effects.run();
+    void this.missions.startPlanning(missionId);
+    return this.missions.get(user, missionId);
   }
 
   /** Agent planner misi = agent workspace aktif yang profil MCP-nya punya toolset `task` (M3_TASK_013). */

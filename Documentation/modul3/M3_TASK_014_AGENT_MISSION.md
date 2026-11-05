@@ -1,6 +1,59 @@
 # Task: Misi Agent — Perintah Langsung ke Agent (P1, bertahap)
 **ID:** M3_TASK_014
-**Status:** Belum dimulai (dokumen disusun 5 Nov 2026)
+**Status:** Fase A & Fase B Done (5 Nov 2026).
+
+**Implementasi Fase B (berbeda dari rancangan bila disebut)**
+
+*Penjadwal*
+- **Mekanisme:** `MissionExecutorService.tick()` dipanggil sweeper Intel tiap **2 menit** (bukan cron 5 menit) dan langsung setelah rencana ditulis.
+- **Task yang dipilih** (`mission.rules.pickRunnable`) memenuhi semua syarat berikut:
+  - bertanda `eksekutor:agent`, berstatus `todo`, belum di-assign, `agent_status=idle`;
+  - `start_date ≤ hari ini` (zona waktu workspace);
+  - dependensinya `done` (via `task_map` ref → id yang disimpan saat materialisasi) dan semua subtask-nya `done`.
+- **Batas run:** maksimal 2 run aktif per misi.
+
+*Eksekusi*
+- **Penugasan:** task di-assign ke agent `agent_key` rencana (fallback agent planner) atas nama pembuat misi, lewat `TasksService.updateAs`, sehingga run Modul 2 `assignment` berjalan. Run yang selesai menandai task `done` (perilaku Modul 2).
+- **Konteks run:** sebelum dispatch, blok paragraf "Konteks misi …" (perintah, timeline, dependensi selesai) ditambahkan ke dokumen task. Brief run Modul 2 membaca blok task.
+
+*Budget*
+- **Bentuknya jumlah run, bukan USD:**
+  - `max_runs` (default 10, maks 50) dan `runs_dispatched`;
+  - kuota diklaim atomik sebelum dispatch;
+  - token per run dibatasi `run_token_budget` profil agent dan kuota harian Gateway.
+- **USD per misi belum ada:** budget USD per misi ditunda karena biaya run Modul 2 belum tercatat per misi.
+
+*Status & aksi*
+- **Status:** `scheduled` (menunggu tanggal/dependensi), `running`, `paused`, `completed`. `completed` diberikan bila semua task rencana `done`, dan task induk ikut ditandai `done`. Task induk atau project dihapus → `cancelled`.
+- **Aksi:**
+  - `POST /missions/:id/pause`;
+  - `POST /missions/:id/resume {extra_runs}`;
+  - `cancel` sekarang juga menghentikan run aktif (`AgentRunsService.cancelActive`).
+- **Detail misi:** menyertakan `progress` (task total/selesai, task agent selesai/berjalan/gagal).
+
+*Pengaturan & kendala*
+- **Opt-in/out:** form misi dan kartu Penjadwalan wizard punya pilihan **"Agent mengerjakan task bagiannya"** (default aktif). Form misi juga punya kuota run.
+- **Re-plan otomatis saat terlambat/gagal:** belum. Task gagal ditandai `agent_status=failed` + komentar sistem dari Modul 2, dan menunggu tindakan manusia.
+- **MCP:** planner hanya boleh menugasi agent yang profilnya aktif di MCP (mis. bukan `assistant`). Bila output LLM tidak valid, planner diminta ulang sekali dengan alasan penolakan, dan rentang task induk diperlebar agar mencakup subtask.
+
+*Test & verifikasi*
+- **Tes otomatis:**
+  - Jest: `mission-execution.rules.spec.ts`, `mission-executor.service.spec.ts`, `mission.service.spec.ts`.
+  - MCP: unit + integrasi.
+- **Uji nyata:** misi 1 run, task dikerjakan Agent_Strategist dalam ±40 detik, hasil tertulis di dokumen task, misi `completed`.
+- **Playwright stack:** 9/9. E2E mematikan eksekusi agar suite tidak memicu run berbayar.
+
+**Implementasi Fase A**
+- **Backend:**
+  - `POST /workspaces/:ws/missions` (member) → `IntelService.createMission` → `MissionService.createManualInTx`: project AI baru bila tanpa `project_id`, task induk "Misi: …", misi `source=manual`. Planning berjalan di latar memakai `intel_mission_plan`.
+  - `GET /workspaces/:ws/missions` (viewer).
+  - Approve/revisi/batal/coba lagi memakai ulang TASK_013.
+- **Frontend:**
+  - Halaman **Misi Agent** (`/intel/missions`, tombol di header Riset & Insight) dan form dialog **Perintah ke Agent** (judul, perintah, hasil yang diharapkan, project, timeline, mode).
+  - Halaman detail misi (`/intel/missions/:id`) dengan panel tinjauan yang sama dengan detail job.
+- **Test:** Jest `mission.service.spec.ts`, Vitest form, Playwright E2E-M3-10 (stack nyata, 9/9 suite lulus).
+
+**Ditunda ke Fase B:** pemilih agent planner di form dan budget USD (YAGNI sebelum ada eksekusi). Estimasi biaya ditampilkan statis (±$0,03–0,05 per perintah).
 **Repo:** `marketingdashboardjtp` + `mcp`
 **Dependencies:** [M3_TASK_013](M3_TASK_013_AGENT_PLANNER.md) (misi + planner + materialisasi), Modul 2 (agent run `assignment`, runtime agent MCP, budget)
 **Estimasi:** Fase A 3 pd + Fase B 5 pd

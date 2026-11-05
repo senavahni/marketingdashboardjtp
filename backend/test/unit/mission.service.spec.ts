@@ -58,6 +58,11 @@ function baseMission() {
     error: null as unknown,
     root_task_id: 'root-1',
     cost_usd: 0,
+    execution_enabled: true,
+    max_runs: 10,
+    runs_dispatched: 0,
+    task_map: null as unknown,
+    completed_at: null,
     created_by: user.id,
     created_at: new Date(),
     updated_at: new Date(),
@@ -71,7 +76,7 @@ function harness(state: Record<string, unknown> = {}) {
     projects: { findFirst: jest.fn().mockResolvedValue({ id: project }), create: jest.fn(({ data }: { data: object }) => Promise.resolve({ id: 'ai-project', ...data })) },
     agents: { findUniqueOrThrow: jest.fn().mockResolvedValue({ id: planner.id, name: planner.name }) },
     agent_missions: {
-      create: jest.fn().mockResolvedValue(undefined),
+      create: jest.fn(({ data }: { data: Record<string, unknown> }) => Promise.resolve({ id: 'm-new', ...data })),
       update: jest.fn().mockResolvedValue(undefined),
       updateMany: jest.fn(() => {
         if (current.materialized_revision !== null && current.materialized_revision >= current.plan_revision) return Promise.resolve({ count: 0 });
@@ -115,6 +120,7 @@ function harness(state: Record<string, unknown> = {}) {
     realtime: { toProject: jest.fn() },
     mcp: { call: jest.fn().mockResolvedValue({ plan: PLAN, cost: { llm_tokens: 1200, usd: 0.012 } }) },
     activity: { log: jest.fn().mockResolvedValue(undefined) },
+    executor: { tickMission: jest.fn().mockResolvedValue(0), progress: jest.fn().mockResolvedValue(null), cancelRuns: jest.fn().mockResolvedValue(undefined) },
   };
   const service = new MissionService(
     prisma as never,
@@ -127,6 +133,7 @@ function harness(state: Record<string, unknown> = {}) {
     deps.realtime as never,
     deps.mcp as never,
     deps.activity as never,
+    deps.executor as never,
   );
   return { service, prisma, tx, tasks, ...deps, state: () => current };
 }
@@ -144,7 +151,13 @@ describe('MissionService.createForIntelJobInTx', () => {
   const params = {
     workspaceId: ws,
     job: { id: jobId, title: 'Riset kopi' },
-    schedule: { project_id: project, period: { start_date: '2026-11-10', end_date: '2026-11-30' }, approval_mode: 'auto' as const },
+    schedule: {
+      project_id: project,
+      period: { start_date: '2026-11-10', end_date: '2026-11-30' },
+      approval_mode: 'auto' as const,
+      execution_enabled: false,
+      max_runs: 3,
+    },
     plannerAgentId: planner.id,
     stages: [
       { stage: 'collect' as const, agent: { id: 'a1', name: 'Agent_Researcher' } },
@@ -165,7 +178,15 @@ describe('MissionService.createForIntelJobInTx', () => {
       expect.objectContaining({ title: 'Analisis sentimen & tren', tags: ['misi', 'tahap:analyze'] }),
     ]);
     expect(h.tx.agent_missions.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ intel_job_id: jobId, status: 'waiting_research', root_task_id: 'task-1', agent_id: planner.id, approval_mode: 'auto' }),
+      data: expect.objectContaining({
+        intel_job_id: jobId,
+        status: 'waiting_research',
+        root_task_id: 'task-1',
+        agent_id: planner.id,
+        approval_mode: 'auto',
+        execution_enabled: false,
+        max_runs: 3,
+      }),
     });
     expect(effects.add).toHaveBeenCalled(); // realtime TASK_CREATED setelah commit
   });
@@ -183,11 +204,85 @@ describe('MissionService.createForIntelJobInTx', () => {
     expect(h.tx.agent_missions.create).toHaveBeenCalledWith({ data: expect.objectContaining({ project_id: 'ai-project' }) });
   });
 
+  it('Ulangi job: misi yang belum menulis rencana dipindah ke job baru, subtask tahap direset ke todo', async () => {
+    const h = harness({ status: 'failed' });
+    const stageTasks = [
+      { id: 's1', status: 'in_progress', tags: ['misi', 'tahap:collect'] },
+      { id: 's2', status: 'done', tags: ['misi', 'tahap:analyze'] },
+    ];
+    Object.assign(h.tx, {
+      agent_missions: { ...h.tx.agent_missions, findFirst: jest.fn().mockResolvedValue({ id: missionId, root_task_id: 'root-1', project_id: project }) },
+      tasks: {
+        ...h.tx.tasks,
+        findMany: jest.fn().mockResolvedValue(stageTasks),
+        update: jest.fn().mockResolvedValue(undefined),
+        findFirst: jest.fn().mockResolvedValue({ id: 'root-1', depth: 1, project_id: project }),
+      },
+    });
+    const moved = await h.service.reattachInTx(
+      h.tx as never,
+      { oldJobId: jobId, newJobId: 'new-job', workspaceId: ws, user, timezone: 'Asia/Jakarta', stages: [...params.stages, { stage: 'index' as const, agent: { id: 'a3', name: 'Agent_Strategist' } }] },
+      { add: jest.fn() } as never,
+    );
+    expect(moved).toBe(true);
+    expect(h.tx.agent_missions.update).toHaveBeenCalledWith({
+      where: { id: missionId },
+      data: expect.objectContaining({ intel_job_id: 'new-job', status: 'waiting_research', planning_started_at: null }),
+    });
+    const tx = h.tx as unknown as { tasks: { update: jest.Mock } };
+    expect(tx.tasks.update.mock.calls.map(([a]) => [a.where.id, a.data.status])).toEqual([['s1', 'todo'], ['s2', 'todo']]);
+    // tahap baru (index) yang belum punya subtask dibuat
+    expect(h.tasks.createInTx).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ title: 'Indeks ke Knowledge Base', tags: ['misi', 'tahap:index'] }), expect.anything());
+  });
+
   it('project di luar workspace ditolak', async () => {
     const h = harness();
     h.tx.projects.findFirst.mockResolvedValue(null);
     expect(await code(h.service.createForIntelJobInTx(h.tx as never, params, { add: jest.fn() } as never))).toMatch(/Project penjadwalan/);
     expect(h.tasks.createInTx).not.toHaveBeenCalled();
+  });
+});
+
+describe('MissionService misi manual (M3_TASK_014 Fase A)', () => {
+  const input = {
+    title: 'Kampanye Harbolnas',
+    instruction: 'Siapkan kampanye Harbolnas di Instagram & X',
+    expected_outcome: 'Kalender konten 2 minggu',
+    period: { start_date: '2026-11-10', end_date: '2026-11-30' },
+    approval_mode: 'review' as const,
+    execution_enabled: true,
+    max_runs: 5,
+  };
+
+  it('tanpa project → project AI + task induk "Misi: …" + misi planning (instruksi memuat hasil yang diharapkan)', async () => {
+    const h = harness();
+    const effects = { add: jest.fn() };
+    const id = await h.service.createManualInTx(h.tx as never, { workspaceId: ws, user, plannerAgentId: planner.id, input }, effects as never);
+    expect(h.tx.projects.create).toHaveBeenCalledWith({ data: expect.objectContaining({ title: 'Misi: Kampanye Harbolnas', icon: '🤖', created_by: null }) });
+    expect(h.tasks.createInTx.mock.calls[0][1]).toMatchObject({
+      projectId: 'ai-project',
+      parent: null,
+      title: 'Misi: Kampanye Harbolnas',
+      startDate: '2026-11-10',
+      endDate: '2026-11-30',
+      tags: ['misi'],
+    });
+    const data = h.tx.agent_missions.create.mock.calls[0][0].data;
+    expect(data).toMatchObject({ source: 'manual', status: 'planning', approval_mode: 'review', project_id: 'ai-project', root_task_id: 'task-1' });
+    expect(data).not.toHaveProperty('intel_job_id');
+    expect(data.instruction).toBe('Siapkan kampanye Harbolnas di Instagram & X\n\nHasil yang diharapkan: Kalender konten 2 minggu');
+    expect(typeof id).toBe('string');
+  });
+
+  it('daftar misi workspace (viewer) terbaru dulu', async () => {
+    const h = harness();
+    Object.assign(h.prisma.agent_missions, { findMany: jest.fn().mockResolvedValue([mission({ source: 'manual', intel_job_id: null })]) });
+    const out = await h.service.list(user, ws, { limit: 50 });
+    expect(h.access.assertWorkspace).toHaveBeenCalledWith(user.id, ws);
+    expect((h.prisma.agent_missions as unknown as { findMany: jest.Mock }).findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { workspace_id: ws, deleted_at: null }, orderBy: { created_at: 'desc' }, take: 50 }),
+    );
+    expect(out.data[0]).toMatchObject({ id: missionId, source: 'manual', instruction: 'Susun task tindak lanjut' });
   });
 });
 
@@ -225,6 +320,9 @@ describe('MissionService planning & materialisasi', () => {
     ]);
     expect(created[0]).toMatchObject({ actor: { type: 'agent', id: planner.id }, tags: ['misi', 'eksekutor:agent'], assignee: null });
     expect(h.state()).toMatchObject({ status: 'scheduled', plan_revision: 1, materialized_revision: 1, cost_usd: 0.012 });
+    // task_map (ref → id) disimpan untuk dependensi penjadwal & eksekusi langsung dipicu (Fase B)
+    expect(h.tx.agent_missions.update).toHaveBeenCalledWith({ where: { id: missionId }, data: { task_map: { t1: 'task-1', 't1.1': 'task-2', t2: 'task-3' } } });
+    expect(h.executor.tickMission).toHaveBeenCalledWith(missionId);
     // deskripsi + dependensi ditulis sebagai blok paragraf
     const texts = h.blocks.applyAs.mock.calls.map(([, , ops]) => ops.map((o: { block: { content_json: { content: { text: string }[] } } }) => o.block.content_json.content[0].text));
     expect(texts).toContainEqual(['Buat 3 draf post']);
@@ -271,8 +369,26 @@ describe('MissionService planning & materialisasi', () => {
     expect(h.mcp.call).toHaveBeenCalledWith('intel_mission_plan', expect.anything(), expect.anything(), undefined, expect.any(Number));
 
     const early = harness({ status: 'failed' });
-    Object.assign(early.prisma, { intel_jobs: { findFirst: jest.fn().mockResolvedValue({ status: 'failed' }) } });
+    const noRetry = ({ where }: { where: Record<string, unknown> }) => Promise.resolve(where.retry_of_job_id ? null : { status: 'failed' });
+    Object.assign(early.prisma, { intel_jobs: { findFirst: jest.fn(noRetry) } });
     expect(await code(early.service.retry(user, missionId))).toMatch(/belum selesai/);
+  });
+
+  it('retry: job misi gagal tetapi hasil Ulangi-nya selesai → misi pindah ke job ulangan lalu planning', async () => {
+    const retryJob = '66666666-6666-4666-8666-666666666666';
+    const h = harness({ status: 'failed', error: { code: 'RESEARCH_FAILED', message: 'Job riset tidak selesai' } });
+    Object.assign(h.prisma, {
+      intel_jobs: {
+        findFirst: jest.fn(({ where }: { where: Record<string, unknown> }) =>
+          Promise.resolve(where.retry_of_job_id ? { id: retryJob, stages: [{ stage: 'collect', status: 'completed' }, { stage: 'analyze', status: 'skipped' }] } : { status: 'failed' }),
+        ),
+      },
+    });
+    await h.service.retry(user, missionId);
+    await new Promise((r) => setImmediate(r));
+    expect(h.state().intel_job_id).toBe(retryJob);
+    expect(h.tasks.updateAs.mock.calls.map(([, , , input]) => input)).toEqual([{ status: 'done' }, { status: 'done' }]);
+    expect(h.mcp.call).toHaveBeenCalledWith('intel_mission_plan', expect.anything(), expect.anything(), undefined, expect.any(Number));
   });
 
   it('revisi dibatasi & aksi hanya pada status yang sesuai', async () => {

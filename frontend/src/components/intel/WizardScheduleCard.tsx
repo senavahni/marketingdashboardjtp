@@ -61,6 +61,13 @@ export function WizardScheduleCard({ draft, errors, workspaceId, onChange }: Pro
             </div>
             <FieldError message={errors['schedule.period']} />
           </fieldset>
+          <label className="flex cursor-pointer items-start gap-2 md:col-span-2">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#0E9384]" checked={s.execute} onChange={(e) => set({ execute: e.target.checked })} />
+            <span>
+              <span className="block text-[13px] font-medium text-ink">Agent mengerjakan task bagiannya</span>
+              <span className="block text-[11px] text-ink-faint">Task bertanda agent dikerjakan otomatis saat tanggalnya tiba (kuota 10 run, bisa ditambah).</span>
+            </span>
+          </label>
           <div role="radiogroup" aria-label="Mode rencana" className="grid gap-2 md:col-span-2 md:grid-cols-2">
             {MODES.map((m) => (
               <label

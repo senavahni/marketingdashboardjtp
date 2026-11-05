@@ -4,6 +4,7 @@ import { AppConfigService } from '../../config/app-config.service';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { IntelService } from './intel.service';
+import { MissionExecutorService } from './mission-executor.service';
 import { MissionService } from './mission.service';
 
 const INTEL_MAINTENANCE_QUEUE = 'intel-maintenance';
@@ -23,6 +24,7 @@ export class IntelMaintenanceService implements OnModuleInit, OnModuleDestroy {
     private readonly redis: RedisService,
     private readonly intel: IntelService,
     private readonly missions: MissionService,
+    private readonly executor: MissionExecutorService,
   ) {}
 
   async onModuleInit() {
@@ -86,6 +88,8 @@ export class IntelMaintenanceService implements OnModuleInit, OnModuleDestroy {
       }
       const recovered = await this.missions.recoverStale();
       if (recovered) this.logger.log({ recovered }, 'Planning misi dipulihkan');
+      const dispatched = await this.executor.tick();
+      if (dispatched) this.logger.log({ dispatched }, 'Task misi dikirim ke agent');
     } catch (error) {
       this.logger.error({ error }, 'Sweeper job Intel gagal');
     } finally {

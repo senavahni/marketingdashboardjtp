@@ -10,6 +10,8 @@ export const MISSION_LIMITS = {
   instructionMaxChars: 4_000,
   feedbackMaxChars: 1_000,
   maxRevisions: 3,
+  maxRuns: 50,
+  defaultRuns: 10,
 } as const;
 
 export const MISSION_STATUSES = [
@@ -96,7 +98,31 @@ export const intelScheduleInputSchema = z.strictObject({
   period,
   approval_mode: z.enum(['auto', 'review']).default('auto'),
   planner_agent_id: z.uuid().optional(),
+  // Fase B (M3_TASK_014): agent mengerjakan task bertanda eksekutor agent
+  execution_enabled: z.boolean().default(true),
+  max_runs: z.number().int().min(0).max(MISSION_LIMITS.maxRuns).default(MISSION_LIMITS.defaultRuns),
 });
+
+/** Form "Perintah ke Agent" (M3_TASK_014 Fase A). */
+export const createMissionSchema = z.strictObject({
+  title: z.string().trim().min(1).max(MISSION_LIMITS.titleMaxChars),
+  instruction: z.string().trim().min(10, 'Perintah minimal 10 karakter').max(MISSION_LIMITS.instructionMaxChars),
+  expected_outcome: z.string().trim().max(1_000).optional(),
+  // kosong = project baru milik AI
+  project_id: z.uuid().optional(),
+  period,
+  approval_mode: z.enum(['auto', 'review']).default('auto'),
+  planner_agent_id: z.uuid().optional(),
+  // Fase B: agent mengerjakan task bertanda eksekutor agent; budget = jumlah run agent
+  execution_enabled: z.boolean().default(true),
+  max_runs: z.number().int().min(0).max(MISSION_LIMITS.maxRuns).default(MISSION_LIMITS.defaultRuns),
+});
+
+export const missionResumeSchema = z.strictObject({
+  extra_runs: z.number().int().min(0).max(MISSION_LIMITS.maxRuns).default(0),
+});
+
+export type CreateMissionInput = z.infer<typeof createMissionSchema>;
 
 export const missionReviseSchema = z.strictObject({
   feedback: z.string().trim().min(1).max(MISSION_LIMITS.feedbackMaxChars),

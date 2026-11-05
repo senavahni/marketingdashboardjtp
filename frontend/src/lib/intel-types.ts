@@ -114,7 +114,13 @@ export type JobInput = {
 };
 
 /** "Masukkan ke Penjadwalan" (M3_TASK_013) — hanya untuk create, tidak ikut estimasi. */
-export type ScheduleInput = { project_id?: string; period: { start_date: string; end_date: string }; approval_mode: 'auto' | 'review' };
+export type ScheduleInput = {
+  project_id?: string;
+  period: { start_date: string; end_date: string };
+  approval_mode: 'auto' | 'review';
+  /** Fase B: agent mengerjakan task bagiannya (kuota run default backend = 10). */
+  execution_enabled: boolean;
+};
 
 // ---------------------------------------------------------------------------- misi (M3_TASK_013)
 
@@ -151,6 +157,7 @@ export type Mission = {
   source: 'intel_job' | 'manual';
   intel_job_id: string | null;
   title: string;
+  instruction: string;
   start_date: string;
   end_date: string;
   approval_mode: 'auto' | 'review';
@@ -162,14 +169,22 @@ export type Mission = {
   cost_usd: number;
   error: { code: string; message: string } | null;
   agent: { id: string; name: string; mcp_agent_key: string };
+  /** Fase B: agent mengerjakan task bertanda eksekutor agent; budget = jumlah run. */
+  execution_enabled: boolean;
+  max_runs: number;
+  runs_dispatched: number;
+  completed_at: string | null;
+  progress?: MissionProgress | null;
 };
+
+export type MissionProgress = { total: number; done: number; agent_total: number; agent_done: number; agent_running: number; agent_failed: number };
 
 export const MISSION_STATUS_LABEL: Record<MissionStatus, string> = {
   waiting_research: 'Menunggu riset selesai',
   planning: 'Agent menyusun rencana…',
   awaiting_review: 'Menunggu tinjauan',
   scheduled: 'Terjadwal di Penjadwalan',
-  running: 'Berjalan',
+  running: 'Agent sedang bekerja',
   paused: 'Dijeda',
   completed: 'Selesai',
   failed: 'Gagal',

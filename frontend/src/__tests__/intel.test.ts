@@ -27,6 +27,7 @@ import {
   validateStep,
   type WizardDraft,
 } from '../lib/intel-wizard';
+import { emptyMissionForm, missionFormToBody, validateMissionForm } from '../lib/intel-mission';
 import { parseInline, parseMarkdown, safeHref } from '../lib/safe-markdown';
 
 const agent = (name: string, capabilities: IntelAgent['capabilities'], extra: Partial<IntelAgent> = {}): IntelAgent => ({
@@ -168,6 +169,42 @@ describe('pemilihan agent (M3_TASK_008)', () => {
   });
 });
 
+describe('form Perintah ke Agent (M3_TASK_014 Fase A)', () => {
+  it('default: project AI baru, mode langsung jalan, timeline 14 hari', () => {
+    expect(emptyMissionForm(TODAY)).toMatchObject({ projectId: 'new', mode: 'auto', start: '2026-11-04', end: '2026-11-17' });
+  });
+
+  it('validasi judul, perintah, dan timeline', () => {
+    const f = emptyMissionForm(TODAY);
+    expect(validateMissionForm(f)).toMatchObject({ title: 'Judul wajib diisi', instruction: 'Tulis perintah minimal 10 karakter' });
+    const ok = { ...f, title: 'Kampanye', instruction: 'Siapkan kampanye Harbolnas' };
+    expect(validateMissionForm(ok)).toEqual({});
+    expect(validateMissionForm({ ...ok, end: '2026-11-01' }).period).toMatch(/sebelum/);
+    expect(validateMissionForm({ ...ok, end: '2027-06-01' }).period).toBe('Timeline maksimal 180 hari');
+  });
+
+  it('body API: project AI → tanpa project_id; hasil yang diharapkan kosong tidak dikirim', () => {
+    const f = { ...emptyMissionForm(TODAY), title: ' Kampanye ', instruction: ' Siapkan kampanye Harbolnas ' };
+    expect(missionFormToBody(f)).toEqual({
+      title: 'Kampanye',
+      instruction: 'Siapkan kampanye Harbolnas',
+      period: { start_date: '2026-11-04', end_date: '2026-11-17' },
+      approval_mode: 'auto',
+      execution_enabled: true,
+      max_runs: 10,
+    });
+    // tanpa eksekusi agent → tidak ada run
+    expect(missionFormToBody({ ...f, execute: false })).toMatchObject({ execution_enabled: false, max_runs: 0 });
+    expect(validateMissionForm({ ...f, maxRuns: 0 }).maxRuns).toBe('1–50 run');
+    expect(validateMissionForm({ ...f, execute: false, maxRuns: 0 }).maxRuns).toBeUndefined();
+    expect(missionFormToBody({ ...f, projectId: 'p1', expectedOutcome: 'Kalender konten', mode: 'review' })).toMatchObject({
+      project_id: 'p1',
+      expected_outcome: 'Kalender konten',
+      approval_mode: 'review',
+    });
+  });
+});
+
 describe('misi penjadwalan (M3_TASK_013)', () => {
   const item = (ref: string, executor: 'agent' | 'human') => ({
     ref,
@@ -255,7 +292,8 @@ describe('validasi wizard (M3_TASK_004)', () => {
     const d = validDraft();
     expect(d.schedule).toMatchObject({ enabled: true, projectId: 'new', mode: 'auto', start: '2026-11-04', end: '2026-11-17' });
     expect(validateStep(d, 2)).toEqual({});
-    expect(draftToSchedule(d)).toEqual({ period: { start_date: '2026-11-04', end_date: '2026-11-17' }, approval_mode: 'auto' });
+    expect(draftToSchedule(d)).toEqual({ period: { start_date: '2026-11-04', end_date: '2026-11-17' }, approval_mode: 'auto', execution_enabled: true });
+    expect(draftToSchedule({ ...d, schedule: { ...d.schedule, execute: false } })?.execution_enabled).toBe(false);
     expect(draftToSchedule({ ...d, schedule: { ...d.schedule, enabled: false } })).toBeUndefined();
     expect(draftFromJob(job(), TODAY).schedule.enabled).toBe(false);
   });
@@ -269,7 +307,12 @@ describe('validasi wizard (M3_TASK_004)', () => {
     expect(validateStep(long, 2)['schedule.period']).toBe('Timeline maksimal 180 hari');
     const ok = { ...on, schedule: { ...on.schedule, projectId: 'p1', mode: 'review' as const } };
     expect(validateStep(ok, 2)).toEqual({});
-    expect(draftToSchedule(ok)).toEqual({ project_id: 'p1', period: { start_date: '2026-11-04', end_date: '2026-11-17' }, approval_mode: 'review' });
+    expect(draftToSchedule(ok)).toEqual({
+      project_id: 'p1',
+      period: { start_date: '2026-11-04', end_date: '2026-11-17' },
+      approval_mode: 'review',
+      execution_enabled: true,
+    });
   });
 
   it('mode Ulangi mengisi draft dari spec & agent job lama', () => {

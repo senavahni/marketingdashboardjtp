@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteD
 import { useEffect } from 'react';
 import { ApiError, api } from '../lib/api';
 import { applyJobUpdate } from '../lib/intel-format';
+import type { CreateMissionBody } from '../lib/intel-mission';
 import type {
   Estimate,
   IntelAgent,
@@ -60,6 +61,8 @@ export const intelKeys = {
   projection: (id: string, status: JobStatus) => ['intel', 'projection', id, status] as const,
   flowTokens: (id: string) => ['intel', 'flow-tokens', id] as const,
   mission: (jobId: string) => ['intel', 'mission', jobId] as const,
+  missions: (ws: string) => ['intel', 'missions', ws] as const,
+  missionDetail: (id: string) => ['intel', 'mission-detail', id] as const,
 };
 
 /** Modul Intel nonaktif (MCP_INTEL_API_KEY kosong) → 503 FEATURE_DISABLED; UI cukup menyembunyikan fiturnya. */
@@ -142,23 +145,77 @@ export const useIntelJob = (id: string | undefined) =>
   useQuery({ queryKey: intelKeys.job(id ?? ''), enabled: !!id, queryFn: () => api<IntelJob>(`/intel/jobs/${id}`), retry: false });
 
 const MISSION_POLL_MS = 5_000;
+const MISSION_EXEC_POLL_MS = 15_000;
 const MISSION_BUSY: MissionStatus[] = ['waiting_research', 'planning'];
+// progres eksekusi agent (Fase B) berubah tanpa event misi → dipoll lebih jarang
+const missionPoll = (status?: MissionStatus): number | false =>
+  !status ? false : MISSION_BUSY.includes(status) ? MISSION_POLL_MS : status === 'running' || status === 'scheduled' ? MISSION_EXEC_POLL_MS : false;
 
 /** Misi penjadwalan job riset (M3_TASK_013); polling selama agent masih menyusun rencana. */
 export const useJobMission = (jobId: string) =>
   useQuery({
     queryKey: intelKeys.mission(jobId),
     queryFn: () => api<{ data: Mission | null }>(`/intel/jobs/${jobId}/mission`).then((r) => r.data),
-    refetchInterval: (q) => (q.state.data && MISSION_BUSY.includes(q.state.data.status) ? MISSION_POLL_MS : false),
+    refetchInterval: (q) => missionPoll(q.state.data?.status),
     retry: false,
   });
 
-export function useMissionAction(jobId: string) {
+/** Aksi misi (setujui/revisi/batal/coba lagi) — memperbarui cache detail job, detail misi, dan daftar misi. */
+export function useMissionAction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, action, feedback }: { id: string; action: 'approve' | 'revise' | 'cancel' | 'retry'; feedback?: string }) =>
-      api<Mission>(`/missions/${id}/${action}`, { method: 'POST', body: action === 'revise' ? { feedback } : {} }),
-    onSuccess: (mission) => qc.setQueryData(intelKeys.mission(jobId), mission),
+    mutationFn: ({
+      id,
+      action,
+      feedback,
+      extraRuns,
+    }: {
+      id: string;
+      action: 'approve' | 'revise' | 'cancel' | 'retry' | 'pause' | 'resume';
+      feedback?: string;
+      extraRuns?: number;
+    }) =>
+      api<Mission>(`/missions/${id}/${action}`, {
+        method: 'POST',
+        body: action === 'revise' ? { feedback } : action === 'resume' ? { extra_runs: extraRuns ?? 0 } : {},
+      }),
+    onSuccess: (mission) => {
+      if (mission.intel_job_id) qc.setQueryData(intelKeys.mission(mission.intel_job_id), mission);
+      qc.setQueryData(intelKeys.missionDetail(mission.id), mission);
+      void qc.invalidateQueries({ queryKey: intelKeys.missions(mission.workspace_id) });
+    },
+  });
+}
+
+/** Misi Agent (M3_TASK_014 Fase A): daftar per workspace & detail; polling selama agent menyusun rencana. */
+export const useMissions = (ws: string) =>
+  useQuery({
+    queryKey: intelKeys.missions(ws),
+    queryFn: () => api<{ data: Mission[] }>(`/workspaces/${ws}/missions`).then((r) => r.data),
+    refetchInterval: (q) => {
+      const polls = (q.state.data ?? []).map((m) => missionPoll(m.status)).filter((x): x is number => x !== false);
+      return polls.length ? Math.min(...polls) : false;
+    },
+    retry: false,
+  });
+
+export const useMission = (id: string) =>
+  useQuery({
+    queryKey: intelKeys.missionDetail(id),
+    queryFn: () => api<Mission>(`/missions/${id}`),
+    refetchInterval: (q) => missionPoll(q.state.data?.status),
+    retry: false,
+  });
+
+export function useCreateMission(ws: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateMissionBody) => api<Mission>(`/workspaces/${ws}/missions`, { method: 'POST', body }),
+    onSuccess: (mission, body) => {
+      qc.setQueryData(intelKeys.missionDetail(mission.id), mission);
+      void qc.invalidateQueries({ queryKey: intelKeys.missions(ws) });
+      if (!body.project_id) void qc.invalidateQueries({ queryKey: qk.projects(ws) });
+    },
   });
 }
 

@@ -5,6 +5,7 @@ import { Actor, AuthUser, userActor } from '../../common/types/request.types';
 import { PrismaService, Tx } from '../../database/prisma.service';
 import { Prisma, agent_missions, mission_status, tasks } from '../../generated/prisma/client';
 import {
+  CreateMissionInput,
   IntelScheduleInput,
   MISSION_LIMITS,
   MissionPlan,
@@ -24,6 +25,7 @@ import { RealtimeService } from '../realtime/realtime.service';
 import { TaskReaderService } from '../tasks/task-reader.service';
 import { TasksService } from '../tasks/tasks.service';
 import { IntelMcpClient } from './intel-mcp-client.service';
+import { MissionExecutorService } from './mission-executor.service';
 import {
   IntelStage,
   MISSION_TAG,
@@ -70,6 +72,7 @@ export class MissionService {
     private readonly realtime: RealtimeService,
     private readonly mcp: IntelMcpClient,
     private readonly activity: ActivityService,
+    private readonly executor: MissionExecutorService,
   ) {}
 
   // ================= Pembuatan (bagian dari transaksi job riset) =================
@@ -77,7 +80,17 @@ export class MissionService {
   async createForIntelJobInTx(tx: Tx, p: IntelMissionParams, effects: AfterCommit): Promise<void> {
     const project = p.schedule.project_id
       ? await tx.projects.findFirst({ where: { id: p.schedule.project_id, workspace_id: p.workspaceId, deleted_at: null } })
-      : await this.createAiProject(tx, p, effects);
+      : await this.createAiProject(
+          tx,
+          {
+            workspaceId: p.workspaceId,
+            plannerAgentId: p.plannerAgentId,
+            title: `Riset: ${p.job.title}`,
+            description: `Project otomatis dari job riset "${p.job.title}".`,
+            metadata: { intel_job_id: p.job.id },
+          },
+          effects,
+        );
     if (!project) throw Errors.validation('Project penjadwalan tidak ditemukan di workspace ini', { field: 'schedule.project_id' });
     const actor = userActor(p.user);
     const today = todayInTimezone(p.timezone);
@@ -132,6 +145,8 @@ export class MissionService {
         start_date: new Date(`${start}T00:00:00.000Z`),
         end_date: new Date(`${end}T00:00:00.000Z`),
         approval_mode: p.schedule.approval_mode,
+        execution_enabled: p.schedule.execution_enabled,
+        max_runs: p.schedule.max_runs,
         status: 'waiting_research',
         root_task_id: root.id,
         created_by: p.user.id,
@@ -140,25 +155,97 @@ export class MissionService {
     this.emitCreated(created, actor, effects);
   }
 
-  /** Project khusus job riset ini, dibuat oleh agent planner (bukan user); anggota tetap bisa mengedit. */
-  private async createAiProject(tx: Tx, p: IntelMissionParams, effects: AfterCommit) {
+  /** Project khusus misi, dibuat oleh agent planner (bukan user); anggota tetap bisa mengedit. */
+  private async createAiProject(
+    tx: Tx,
+    p: { workspaceId: string; plannerAgentId: string; title: string; description: string; metadata: Record<string, string> },
+    effects: AfterCommit,
+  ) {
     const planner = await tx.agents.findUniqueOrThrow({ where: { id: p.plannerAgentId }, select: { id: true, name: true } });
     const actor: Actor = { type: 'agent', id: planner.id, name: planner.name };
     const project = await tx.projects.create({
       data: {
         workspace_id: p.workspaceId,
-        title: `Riset: ${p.job.title}`.slice(0, 200),
-        description: `Project otomatis dari job riset "${p.job.title}". Task & jadwal disusun ${planner.name}.`,
+        title: p.title.slice(0, 200),
+        description: `${p.description} Task & jadwal disusun ${planner.name}.`,
         icon: AI_PROJECT_ICON,
         created_by: null,
       },
     });
     await this.activity.log(
       tx,
-      { workspaceId: p.workspaceId, projectId: project.id, entityType: 'project', entityId: project.id, action: 'project.created', actor, metadata: { title: project.title, intel_job_id: p.job.id } },
+      { workspaceId: p.workspaceId, projectId: project.id, entityType: 'project', entityId: project.id, action: 'project.created', actor, metadata: { title: project.title, ...p.metadata } },
       effects,
     );
     return project;
+  }
+
+  // ================= Misi manual: "Perintah ke Agent" (M3_TASK_014 Fase A) =================
+
+  /** Buat misi manual + task induk (dan project AI bila tidak memilih project). Planning dimulai pemanggil. */
+  async createManualInTx(
+    tx: Tx,
+    p: { workspaceId: string; user: AuthUser; plannerAgentId: string; input: CreateMissionInput },
+    effects: AfterCommit,
+  ): Promise<string> {
+    const { input } = p;
+    const project = input.project_id
+      ? await tx.projects.findFirst({ where: { id: input.project_id, workspace_id: p.workspaceId, deleted_at: null } })
+      : await this.createAiProject(
+          tx,
+          { workspaceId: p.workspaceId, plannerAgentId: p.plannerAgentId, title: `Misi: ${input.title}`, description: `Project misi agent "${input.title}".`, metadata: {} },
+          effects,
+        );
+    if (!project) throw Errors.validation('Project tidak ditemukan di workspace ini', { field: 'project_id' });
+    const actor = userActor(p.user);
+    const root = await this.tasks.createInTx(
+      tx,
+      {
+        workspaceId: p.workspaceId,
+        projectId: project.id,
+        parent: null,
+        title: `Misi: ${input.title}`,
+        priority: 'medium',
+        assignee: null,
+        startDate: input.period.start_date,
+        endDate: input.period.end_date,
+        tags: [MISSION_TAG],
+        actor,
+      },
+      effects,
+    );
+    const instruction = input.expected_outcome ? `${input.instruction}\n\nHasil yang diharapkan: ${input.expected_outcome}` : input.instruction;
+    const mission = await tx.agent_missions.create({
+      data: {
+        workspace_id: p.workspaceId,
+        project_id: project.id,
+        agent_id: p.plannerAgentId,
+        source: 'manual',
+        title: input.title,
+        instruction,
+        start_date: new Date(`${input.period.start_date}T00:00:00.000Z`),
+        end_date: new Date(`${input.period.end_date}T00:00:00.000Z`),
+        approval_mode: input.approval_mode,
+        status: 'planning',
+        root_task_id: root.id,
+        execution_enabled: input.execution_enabled,
+        max_runs: input.max_runs,
+        created_by: p.user.id,
+      },
+    });
+    this.emitCreated([root], actor, effects);
+    return mission.id;
+  }
+
+  async list(user: AuthUser, workspaceId: string, query: { status?: mission_status; limit: number }) {
+    await this.access.assertWorkspace(user.id, workspaceId);
+    const rows = await this.prisma.agent_missions.findMany({
+      where: { workspace_id: workspaceId, deleted_at: null, ...(query.status ? { status: query.status } : {}) },
+      include: MISSION_INCLUDE,
+      orderBy: { created_at: 'desc' },
+      take: query.limit,
+    });
+    return { data: rows.map((m) => this.toDto(m)) };
   }
 
   // ================= Sinkron event job riset =================
@@ -249,7 +336,8 @@ export class MissionService {
       mission_id: mission.id,
       agent_key: mission.agent.mcp_agent_key,
       title: mission.title,
-      instruction: mission.instruction,
+      // batas kontrak MCP; perintah + "hasil yang diharapkan" bisa sedikit lebih panjang
+      instruction: mission.instruction.slice(0, MISSION_LIMITS.instructionMaxChars),
       period: { start_date: toDateString(mission.start_date), end_date: toDateString(mission.end_date) },
       context: {
         ...(insight?.summary_md ? { insight_md: insight.summary_md.slice(0, 6_000) } : {}),
@@ -282,12 +370,17 @@ export class MissionService {
       });
       if (!claim.count) return null;
       const root = await this.rootTask(tx, mission, actor, effects);
-      return this.createPlanTasks(tx, mission, plan, root, actor, effects);
+      const rows = await this.createPlanTasks(tx, mission, plan, root, actor, effects);
+      // ref rencana → id task: dependensi terstruktur untuk penjadwal eksekusi (Fase B)
+      const taskMap = Object.fromEntries(rows.map((r) => [r.ref, r.task.id]));
+      await tx.agent_missions.update({ where: { id: missionId }, data: { task_map: taskMap } });
+      return rows;
     });
     if (!created) return;
     await effects.run();
     await this.writeDescriptions(mission, plan, created, actor);
     this.emitCreated(created.map((c) => c.task), actor, null);
+    if (mission.execution_enabled) void this.executor.tickMission(missionId);
   }
 
   private async rootTask(tx: Tx, mission: agent_missions, actor: Actor, effects: AfterCommit): Promise<tasks> {
@@ -360,7 +453,7 @@ export class MissionService {
   async get(user: AuthUser, missionId: string) {
     const mission = await this.findMission(missionId);
     await this.access.assertWorkspace(user.id, mission.workspace_id);
-    return this.toDto(mission);
+    return { ...this.toDto(mission), progress: await this.executor.progress(mission.root_task_id) };
   }
 
   async forIntelJob(user: AuthUser, jobId: string) {
@@ -368,7 +461,7 @@ export class MissionService {
     if (!job) throw Errors.notFound('Job intel tidak ditemukan');
     await this.access.assertWorkspace(user.id, job.workspace_id);
     const mission = await this.prisma.agent_missions.findFirst({ where: { intel_job_id: jobId, deleted_at: null }, include: MISSION_INCLUDE });
-    return { data: mission ? this.toDto(mission) : null };
+    return { data: mission ? { ...this.toDto(mission), progress: await this.executor.progress(mission.root_task_id) } : null };
   }
 
   async approve(user: AuthUser, missionId: string) {
@@ -389,25 +482,123 @@ export class MissionService {
     return this.get(user, missionId);
   }
 
-  /** Ulangi planning misi yang gagal (mis. kuota Gateway habis) tanpa membuat job riset baru. */
+  /**
+   * Ulangi planning misi yang gagal (mis. kuota Gateway habis) tanpa membuat job riset baru.
+   * Bila job misi gagal tetapi hasil "Ulangi"-nya sudah selesai, misi dipindah ke job ulangan itu.
+   */
   async retry(user: AuthUser, missionId: string) {
     const mission = await this.findMission(missionId);
     await this.access.assertWorkspace(user.id, mission.workspace_id, 'member');
     this.assertStatus(mission, ['failed']);
     if (mission.intel_job_id) {
       const job = await this.prisma.intel_jobs.findFirst({ where: { id: mission.intel_job_id }, select: { status: true } });
-      if (job?.status !== 'completed') throw Errors.validation('Job riset belum selesai; planning tidak dapat diulang');
+      if (job?.status !== 'completed') await this.adoptCompletedRetry(mission.intel_job_id, missionId);
     }
     await this.prisma.agent_missions.update({ where: { id: missionId }, data: { status: 'planning', planning_started_at: null, error: Prisma.DbNull } });
     void this.startPlanning(missionId);
     return this.get(user, missionId);
   }
 
+  /** Pindahkan misi ke job "Ulangi" yang sudah selesai dan tandai subtask tahapnya sesuai job tsb. */
+  private async adoptCompletedRetry(jobId: string, missionId: string) {
+    const retryJob = await this.prisma.intel_jobs.findFirst({
+      where: { retry_of_job_id: jobId, status: 'completed', deleted_at: null, mission: null },
+      orderBy: { created_at: 'desc' },
+      select: { id: true, stages: { select: { stage: true, status: true } } },
+    });
+    if (!retryJob) throw Errors.validation('Job riset belum selesai; jalankan Ulangi pada job ini lalu coba lagi');
+    await this.prisma.agent_missions.update({ where: { id: missionId }, data: { intel_job_id: retryJob.id } });
+    for (const { stage, status } of retryJob.stages) {
+      if (status === 'completed' || status === 'skipped') await this.onStageEvent(retryJob.id, stage, status);
+    }
+  }
+
+  /**
+   * "Ulangi" job riset: misi job lama yang belum menulis rencana ikut pindah ke job baru
+   * (project & task induk dipakai ulang, subtask tahap direset). false bila tidak ada misi.
+   */
+  async reattachInTx(
+    tx: Tx,
+    p: { oldJobId: string; newJobId: string; workspaceId: string; user: AuthUser; timezone: string; stages: StageAgent[] },
+    effects: AfterCommit,
+  ): Promise<boolean> {
+    const mission = await tx.agent_missions.findFirst({
+      where: { intel_job_id: p.oldJobId, deleted_at: null, materialized_revision: null, status: { in: ['waiting_research', 'planning', 'failed', 'cancelled'] } },
+    });
+    if (!mission) return false;
+    await tx.agent_missions.update({
+      where: { id: mission.id },
+      data: { intel_job_id: p.newJobId, status: 'waiting_research', error: Prisma.DbNull, planning_started_at: null },
+    });
+    const root = mission.root_task_id ? await tx.tasks.findFirst({ where: { id: mission.root_task_id, deleted_at: null } }) : null;
+    if (!root) return true;
+    const existing = await tx.tasks.findMany({
+      where: { parent_task_id: root.id, deleted_at: null, tags: { hasSome: p.stages.map((s) => stageTag(s.stage)) } },
+      select: { id: true, status: true, tags: true },
+    });
+    const reset = existing.filter((t) => t.status !== 'todo');
+    for (const t of reset) await tx.tasks.update({ where: { id: t.id }, data: { status: 'todo', completed_at: null } });
+    const today = todayInTimezone(p.timezone);
+    const actor = userActor(p.user);
+    const created: tasks[] = [];
+    for (const { stage, agent } of p.stages.filter((s) => !existing.some((t) => t.tags.includes(stageTag(s.stage))))) {
+      created.push(
+        await this.tasks.createInTx(
+          tx,
+          {
+            workspaceId: p.workspaceId,
+            projectId: root.project_id,
+            parent: root,
+            title: STAGE_TITLE[stage],
+            priority: 'medium',
+            assignee: { type: 'agent', id: agent.id, name: agent.name },
+            triggerAssignmentEffects: false,
+            startDate: today,
+            endDate: today,
+            tags: [MISSION_TAG, stageTag(stage)],
+            actor,
+          },
+          effects,
+        ),
+      );
+    }
+    this.emitCreated(created, actor, effects);
+    effects.add(async () => {
+      for (const t of reset) {
+        const dto = await this.reader.getDto(t.id);
+        this.realtime.toProjectAndTask(root.project_id, t.id, RealtimeEvent.TASK_UPDATED, { task: dto, changed_fields: ['status'] }, { actor });
+      }
+    });
+    return true;
+  }
+
+  /** Batalkan misi; run agent yang sedang berjalan dihentikan, task yang sudah ada tetap. */
   async cancel(user: AuthUser, missionId: string) {
     const mission = await this.findMission(missionId);
     await this.access.assertWorkspace(user.id, mission.workspace_id, 'member');
-    this.assertStatus(mission, ['waiting_research', 'planning', 'awaiting_review', 'failed']);
+    this.assertStatus(mission, ['waiting_research', 'planning', 'awaiting_review', 'failed', 'scheduled', 'running', 'paused']);
     await this.prisma.agent_missions.update({ where: { id: missionId }, data: { status: 'cancelled', planning_started_at: null } });
+    await this.executor.cancelRuns(mission.root_task_id, userActor(user));
+    return this.get(user, missionId);
+  }
+
+  /** Jeda eksekusi: tidak ada run baru (run yang sedang berjalan dibiarkan selesai). */
+  async pause(user: AuthUser, missionId: string) {
+    const mission = await this.findMission(missionId);
+    await this.access.assertWorkspace(user.id, mission.workspace_id, 'member');
+    this.assertStatus(mission, ['scheduled', 'running']);
+    await this.prisma.agent_missions.update({ where: { id: missionId }, data: { status: 'paused' } });
+    return this.get(user, missionId);
+  }
+
+  /** Lanjutkan eksekusi; opsional menambah kuota run (`extra_runs`) bila kuota sudah habis. */
+  async resume(user: AuthUser, missionId: string, extraRuns = 0) {
+    const mission = await this.findMission(missionId);
+    await this.access.assertWorkspace(user.id, mission.workspace_id, 'member');
+    this.assertStatus(mission, ['paused', 'scheduled', 'running']);
+    const maxRuns = Math.min(MISSION_LIMITS.maxRuns, mission.max_runs + extraRuns);
+    await this.prisma.agent_missions.update({ where: { id: missionId }, data: { status: 'scheduled', execution_enabled: true, max_runs: maxRuns } });
+    void this.executor.tickMission(missionId);
     return this.get(user, missionId);
   }
 
@@ -446,6 +637,7 @@ export class MissionService {
       source: m.source,
       intel_job_id: m.intel_job_id,
       title: m.title,
+      instruction: m.instruction,
       start_date: toDateString(m.start_date),
       end_date: toDateString(m.end_date),
       approval_mode: m.approval_mode,
@@ -454,6 +646,10 @@ export class MissionService {
       plan_revision: m.plan_revision,
       revisions_left: Math.max(0, MISSION_LIMITS.maxRevisions + 1 - m.plan_revision),
       root_task_id: m.root_task_id,
+      execution_enabled: m.execution_enabled,
+      max_runs: m.max_runs,
+      runs_dispatched: m.runs_dispatched,
+      completed_at: m.completed_at,
       cost_usd: m.cost_usd,
       error: m.error,
       agent: m.agent,

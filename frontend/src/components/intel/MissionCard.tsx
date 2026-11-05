@@ -1,4 +1,4 @@
-import { AlertTriangle, Bot, CalendarClock, Check, ExternalLink, PencilLine, RotateCcw, User, X } from 'lucide-react';
+import { AlertTriangle, Bot, CalendarClock, Check, ExternalLink, Pause, PencilLine, Play, RotateCcw, User, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
@@ -9,7 +9,7 @@ import { MISSION_STATUS_LABEL, type Mission, type MissionPlan, type MissionStatu
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { Spinner } from '../ui/misc';
-import { Card } from './IntelUi';
+import { Card, ProgressBar } from './IntelUi';
 
 const STATUS_TONE: Partial<Record<MissionStatus, string>> = {
   awaiting_review: 'bg-[#FFF4E5] text-[#9A5B00]',
@@ -24,8 +24,6 @@ type Props = { jobId: string; canEdit: boolean };
 export function MissionCard({ jobId, canEdit }: Props) {
   const { data: mission } = useJobMission(jobId);
   if (!mission) return null;
-  const counts = planCounts(mission.plan);
-  const busy = mission.status === 'waiting_research' || mission.status === 'planning';
   return (
     <Card
       title={
@@ -33,17 +31,41 @@ export function MissionCard({ jobId, canEdit }: Props) {
           <CalendarClock size={15} /> Jadwal
         </span>
       }
-      action={
-        <Link to={missionTaskHref(mission.workspace_id, mission.project_id, mission.root_task_id)} className="inline-flex items-center gap-1 text-[12px] font-medium text-[#0E9384] hover:underline">
-          Buka di Penjadwalan <ExternalLink size={12} />
-        </Link>
-      }
+      action={<ScheduleLink mission={mission} />}
     >
+      <MissionBody mission={mission} canEdit={canEdit} />
+    </Card>
+  );
+}
+
+export function ScheduleLink({ mission }: { mission: Mission }) {
+  return (
+    <Link
+      to={missionTaskHref(mission.workspace_id, mission.project_id, mission.root_task_id)}
+      className="inline-flex items-center gap-1 text-[12px] font-medium text-[#0E9384] hover:underline"
+    >
+      Buka di Penjadwalan <ExternalLink size={12} />
+    </Link>
+  );
+}
+
+export function MissionStatusBadge({ status }: { status: MissionStatus }) {
+  const busy = status === 'waiting_research' || status === 'planning';
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-medium', STATUS_TONE[status] ?? 'bg-[#EEF4FF] text-[#1D4ED8]')}>
+      {busy && <Spinner className="h-3 w-3" />}
+      {MISSION_STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+/** Isi misi (dipakai detail job & halaman Misi Agent): status, error + coba lagi, hasil, panel tinjauan. */
+export function MissionBody({ mission, canEdit }: { mission: Mission; canEdit: boolean }) {
+  const counts = planCounts(mission.plan);
+  return (
+    <>
       <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-soft">
-        <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 font-medium', STATUS_TONE[mission.status] ?? 'bg-[#EEF4FF] text-[#1D4ED8]')}>
-          {busy && <Spinner className="h-3 w-3" />}
-          {MISSION_STATUS_LABEL[mission.status]}
-        </span>
+        <MissionStatusBadge status={mission.status} />
         <span>Planner: {mission.agent.name}</span>
         <span>· Mode: {mission.approval_mode === 'auto' ? 'Langsung jalan' : 'Tinjau dulu'}</span>
         <span>
@@ -52,24 +74,94 @@ export function MissionCard({ jobId, canEdit }: Props) {
         {mission.cost_usd > 0 && <span>· Biaya planning {formatUsd(mission.cost_usd)}</span>}
       </div>
       {mission.status === 'waiting_research' && <p className="mt-3 text-[13px] text-ink-soft">Task tindak lanjut disusun agent setelah riset selesai.</p>}
+      {mission.status === 'planning' && <p className="mt-3 text-[13px] text-ink-soft">Agent sedang menyusun task & subtask di dalam timeline (±1 menit)…</p>}
       {mission.status === 'failed' && mission.error && (
         <div role="alert" className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-[#FDECE7] px-3 py-2 text-[12px] text-[#9A3412]">
           <span>{mission.error.message}</span>
-          {canEdit && <RetryButton jobId={jobId} missionId={mission.id} />}
+          {canEdit && <RetryButton missionId={mission.id} />}
         </div>
       )}
-      {mission.status === 'scheduled' && (
-        <p className="mt-3 text-[13px] text-ink">
-          <b>{counts.tasks}</b> task + <b>{counts.subtasks}</b> subtask tindak lanjut sudah ditulis ke Penjadwalan ({counts.byAgent} ditandai untuk agent).
-        </p>
+      {EXECUTION_STATES.includes(mission.status) && (
+        <>
+          <p className="mt-3 text-[13px] text-ink">
+            <b>{counts.tasks}</b> task + <b>{counts.subtasks}</b> subtask di Penjadwalan ({counts.byAgent} dikerjakan agent).
+          </p>
+          <ExecutionPanel mission={mission} canEdit={canEdit} />
+        </>
       )}
-      {mission.status === 'awaiting_review' && mission.plan && <ReviewPanel jobId={jobId} mission={mission} plan={mission.plan} canEdit={canEdit} />}
-    </Card>
+      {mission.status === 'awaiting_review' && mission.plan && <ReviewPanel mission={mission} plan={mission.plan} canEdit={canEdit} />}
+    </>
   );
 }
 
-function RetryButton({ jobId, missionId }: { jobId: string; missionId: string }) {
-  const action = useMissionAction(jobId);
+const EXECUTION_STATES: MissionStatus[] = ['scheduled', 'running', 'paused', 'completed'];
+const EXTRA_RUNS = 5;
+
+/** Fase B: progres eksekusi agent + jeda / lanjutkan / batalkan. */
+function ExecutionPanel({ mission, canEdit }: { mission: Mission; canEdit: boolean }) {
+  const action = useMissionAction();
+  const p = mission.progress;
+  const pct = p && p.total ? Math.round((p.done / p.total) * 100) : 0;
+  const quotaLeft = mission.max_runs - mission.runs_dispatched;
+  const active = mission.status === 'scheduled' || mission.status === 'running';
+  const run = (kind: 'pause' | 'resume' | 'cancel', ok: string, extraRuns = 0) =>
+    action.mutate({ id: mission.id, action: kind, extraRuns }, { onSuccess: () => toast.success(ok), onError: (e) => toast.error(errorMessage(e)) });
+  return (
+    <div className="mt-3 rounded-xl border border-line bg-[#FAFBFC] p-3">
+      {p && (
+        <>
+          <div className="mb-1 flex items-center justify-between text-[12px] text-ink-soft">
+            <span>
+              Progres misi <b className="text-ink">{p.done}/{p.total}</b> task selesai
+            </span>
+            <span>{pct}%</span>
+          </div>
+          <ProgressBar done={p.done} total={p.total} live={mission.status === 'running'} />
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-soft">
+            <span>
+              <Bot size={12} className="mr-1 inline" />
+              Agent: {p.agent_done}/{p.agent_total} selesai
+            </span>
+            {p.agent_running > 0 && <span className="text-[#1D4ED8]">{p.agent_running} sedang dikerjakan</span>}
+            {p.agent_failed > 0 && <span className="text-[#C2410C]">{p.agent_failed} gagal — cek komentar di task</span>}
+          </div>
+        </>
+      )}
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[12px] text-ink-soft">
+        <span>
+          {mission.execution_enabled ? (
+            <>
+              Kuota run agent: {mission.runs_dispatched}/{mission.max_runs}
+              {quotaLeft <= 0 && active && <b className="ml-1 text-[#9A5B00]">habis — tambah kuota untuk melanjutkan</b>}
+            </>
+          ) : (
+            'Eksekusi agent nonaktif: agent hanya menyusun rencana.'
+          )}
+        </span>
+        {canEdit && mission.status !== 'completed' && (
+          <div className="flex gap-1.5">
+            {active && mission.execution_enabled && quotaLeft > 0 && (
+              <Button size="sm" disabled={action.isPending} onClick={() => run('pause', 'Misi dijeda')}>
+                <Pause size={13} /> Jeda
+              </Button>
+            )}
+            {(mission.status === 'paused' || !mission.execution_enabled || quotaLeft <= 0) && (
+              <Button size="sm" disabled={action.isPending} onClick={() => run('resume', 'Agent melanjutkan misi', quotaLeft <= 0 ? EXTRA_RUNS : 0)}>
+                <Play size={13} /> {quotaLeft <= 0 ? `Tambah ${EXTRA_RUNS} run & lanjutkan` : 'Lanjutkan'}
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" disabled={action.isPending} onClick={() => confirm('Batalkan misi? Run agent yang berjalan dihentikan; task tetap ada.') && run('cancel', 'Misi dibatalkan')}>
+              <X size={13} /> Batalkan
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RetryButton({ missionId }: { missionId: string }) {
+  const action = useMissionAction();
   return (
     <Button
       size="sm"
@@ -83,8 +175,8 @@ function RetryButton({ jobId, missionId }: { jobId: string; missionId: string })
   );
 }
 
-function ReviewPanel({ jobId, mission, plan, canEdit }: { jobId: string; mission: Mission; plan: MissionPlan; canEdit: boolean }) {
-  const action = useMissionAction(jobId);
+function ReviewPanel({ mission, plan, canEdit }: { mission: Mission; plan: MissionPlan; canEdit: boolean }) {
+  const action = useMissionAction();
   const [feedback, setFeedback] = useState<string | null>(null);
   const run = (kind: 'approve' | 'revise' | 'cancel', ok: string) =>
     action.mutate(

@@ -72,6 +72,12 @@ export function IntelPage() {
               >
                 <PlugZap size={15} /> Sumber & Koneksi
               </Link>
+              <Link
+                to={`${base}/missions`}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line-strong bg-white px-3 text-sm font-medium text-ink hover:bg-hover"
+              >
+                <Bot size={15} /> Misi Agent
+              </Link>
               {canCreate && (
                 <button type="button" data-tour="intel-new" onClick={openWizard} className={primaryBtn}>
                   <Plus size={16} /> Job Baru
