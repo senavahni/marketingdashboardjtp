@@ -105,4 +105,5 @@ Sama dengan [Modul 1 README §5](../modul1/README.md#5-definition-of-done-berlak
 | 003 | ✅ Selesai — rancangan + state & arah visual (§B.8–B.9) |
 | 004, 005 | ✅ Selesai — UI + Vitest + Playwright stack nyata `frontend/e2e/intel.stack.e2e.ts` (E2E-M3-01..07, sumber Web). Uji 5.000 item X menunggu profil browser X login (TASK_006 §C) |
 | 010 | ✅ Selesai — tahap Indeks ke KB `intel:<workspace_id>`, purge saat hapus job, wizard toggle + badge; diuji MCP (integrasi), Jest, Vitest, Playwright E2E-M3-08 |
-| 006, 011 – 012 | Belum dimulai |
+| 011 | ✅ Selesai — proyeksi PCA `intel_kb_projection`, `sample_tokens` real-time, tombol Tampilan 3D (lazy, fallback 2D). Sisa: ukur fps/memori di iGPU target |
+| 006, 012 | Belum dimulai |

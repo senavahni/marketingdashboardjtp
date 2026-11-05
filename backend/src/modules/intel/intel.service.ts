@@ -21,6 +21,8 @@ import {
   jobSpecSchema,
   jobViewSchema,
   llmStatusSchema,
+  PROJECTION_MAX_POINTS,
+  projectionSchema,
   purgeIndexOutputSchema,
   sourcesStatusSchema,
 } from '../../shared/schemas/intel.schema';
@@ -377,6 +379,22 @@ export class IntelService {
     } catch (error) {
       this.logger.warn({ mcpJobId, err: error instanceof Error ? error.message : String(error) }, 'Gagal menghapus dokumen KB job intel');
     }
+  }
+
+  /** Awan titik 3D (M3_TASK_011): hanya job yang menyimpan ke Knowledge Base; viewer boleh. */
+  async projection(user: AuthUser, jobId: string, requestId?: string) {
+    this.assertEnabled();
+    const job = await this.findJob(jobId);
+    await this.access.assertWorkspace(user.id, job.workspace_id);
+    if (!job.mcp_job_id || !job.stages.some((stage) => stage.stage === 'index')) {
+      return { points: [], method: 'pca' as const, generated_at: null };
+    }
+    return this.mcp.call(
+      'intel_kb_projection',
+      { workspace_id: job.workspace_id, mcp_job_id: job.mcp_job_id, limit: PROJECTION_MAX_POINTS },
+      projectionSchema,
+      requestId,
+    );
   }
 
   /** Log event webhook job (tab Log, M3_TASK_004); hanya metadata, tanpa payload. */

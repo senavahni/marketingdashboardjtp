@@ -220,6 +220,8 @@ export type JobUpdatedEvent = {
   status: JobStatus;
   stages: { stage: Capability; status: StageStatus; progress: { done: number; total: number | null } }[];
   total_items: number | null;
+  /** Kata terbaru tahap index untuk animasi stream 3D (M3_TASK_011); hanya bila ada. */
+  sample_tokens?: string[];
 };
 
 export const CAPABILITY_LABEL: Record<Capability, string> = { collect: 'Kumpulkan', analyze: 'Analisis', index: 'Indeks' };

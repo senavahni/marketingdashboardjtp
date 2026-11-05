@@ -18,6 +18,8 @@ export class IntelEventService {
   private readonly logger = new Logger(IntelEventService.name);
   private readonly lastEmitByJob = new Map<string, number>();
   private readonly pendingEmitByJob = new Map<string, NodeJS.Timeout>();
+  /** Kata terbaru tahap index (M3_TASK_011): tidak disimpan di DB, ikut pancaran real-time berikutnya. */
+  private readonly sampleTokensByJob = new Map<string, string[]>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -143,6 +145,10 @@ export class IntelEventService {
 
       await effects.run();
       if (!updated) return { status: 'duplicate' };
+      const tokens = eventData.sample_tokens;
+      if (envelope.event_type === 'intel.job.progress' && Array.isArray(tokens) && tokens.length) {
+        this.sampleTokensByJob.set(updated.jobId, tokens as string[]);
+      }
       try {
         await this.emitUpdate(updated.jobId, updated.workspaceId);
       } catch (error) {
@@ -276,6 +282,8 @@ export class IntelEventService {
       include: { stages: true },
     });
     if (!job) return;
+    const sampleTokens = this.sampleTokensByJob.get(jobId);
+    this.sampleTokensByJob.delete(jobId);
     this.realtime.toWorkspace(workspaceId, RealtimeEvent.INTEL_JOB_UPDATED, {
       id: job.id,
       status: job.status,
@@ -285,6 +293,7 @@ export class IntelEventService {
         progress: { done: stage.progress_done, total: stage.progress_total },
       })),
       total_items: job.total_items,
+      ...(sampleTokens ? { sample_tokens: sampleTokens } : {}),
     });
   }
 }

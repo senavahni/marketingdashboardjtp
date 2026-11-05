@@ -2,6 +2,7 @@
  * Aturan tampilan Modul 3 (M3_TASK_003 §A): satu warna = satu makna, status selalu ikon + teks.
  * Fungsi di sini murni (tanpa React) agar bisa diuji Vitest dan dipakai ulang oleh exporter.
  */
+import type { FlowEvent } from '../components/intel/viz3d/types';
 import type { Insight, IntelJob, JobStatus, JobUpdatedEvent, Sentiment, SourceType, StageStatus, Table } from './intel-types';
 
 export const INTEL_COLORS = {
@@ -68,6 +69,16 @@ const RETRYABLE: JobStatus[] = ['failed', 'cancelled', 'completed'];
 export const isActiveStatus = (s: JobStatus) => ACTIVE.includes(s);
 export const canCancel = (s: JobStatus) => CANCELLABLE.includes(s);
 export const canRetry = (s: JobStatus) => RETRYABLE.includes(s);
+
+/**
+ * Event aliran untuk visualisasi 3D (M3_TASK_011): tahap yang sedang berjalan, atau tahap terakhir
+ * yang sudah lewat; `total` null (belum diketahui) dianggap sama dengan `done`.
+ */
+export function flowEventFromJob(job: IntelJob, sampleTokens: string[]): FlowEvent | null {
+  const stage = job.stages.find((s) => s.status === 'running') ?? [...job.stages].reverse().find((s) => s.status !== 'pending');
+  if (!stage) return null;
+  return { stage: stage.stage, done: stage.progress_done, total: stage.progress_total ?? stage.progress_done, sample_tokens: sampleTokens };
+}
 
 /** Jumlah chunk tersimpan di Knowledge Base (tahap index selesai), selain itu null. */
 export function kbChunks(job: IntelJob): number | null {

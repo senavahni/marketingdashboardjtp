@@ -77,6 +77,30 @@ describe('IntelEventService', () => {
     );
   });
 
+  it('forwards index progress sample_tokens once to the realtime update (M3_TASK_011)', async () => {
+    const stages = [
+      { stage: 'collect', agent_key: 'researcher' },
+      { stage: 'analyze', agent_key: 'analyst' },
+      { stage: 'index', agent_key: 'strategist' },
+    ];
+    const harness = createHarness({ status: 'indexing', mcp_job_id: 'j_k3m9x2qa1b', last_event_sequence: 4, stages });
+    const progress = {
+      ...baseEvent,
+      event_type: 'intel.job.progress',
+      sequence: 5,
+      data: { stage: 'index', done: 64, total: 200, sample_tokens: ['kopi', 'enak'] },
+    };
+
+    await expect(harness.service.handle(progress)).resolves.toEqual({ status: 'processed' });
+    expect(harness.realtime.toWorkspace).toHaveBeenCalledWith(
+      workspaceId,
+      'intel.job.updated',
+      expect.objectContaining({ id: jobId, sample_tokens: ['kopi', 'enak'] }),
+    );
+    const tooMany = { ...progress, event_id: '66666666-6666-4666-8666-666666666667', data: { ...progress.data, sample_tokens: Array(21).fill('kata') } };
+    await expect(harness.service.handle(tooMany)).rejects.toThrow();
+  });
+
   it('returns 200-shaped duplicate without applying an already processed event', async () => {
     const harness = createHarness({}, true);
 

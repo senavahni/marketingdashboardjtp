@@ -232,6 +232,20 @@ test('E2E-M3-08 simpan ke Knowledge Base: toggle wizard → tahap Indeks → bad
   };
   expect(view.stages.find((s) => s.stage === 'index')).toMatchObject({ agent_key: 'strategist', status: 'completed' });
   expect(view.cost.by_stage).toEqual(expect.arrayContaining([expect.objectContaining({ stage: 'index', agent_key: 'strategist' })]));
+
+  // M3_TASK_011: proyeksi PCA dari KB (viewer boleh) + panel 3D dengan fallback 2D
+  const projection = await api.get(`/api/v1/intel/jobs/${kbJob}/projection`, { headers: auth('viewer') });
+  expect(projection.status()).toBe(200);
+  const { points, method } = (await projection.json()) as { points: { source: string; label: string }[]; method: string };
+  expect(method).toBe('pca');
+  expect(points.length).toBeGreaterThan(0);
+  expect(points.every((p) => p.source === 'web' && p.label.length <= 60)).toBe(true);
+
+  await page.getByRole('button', { name: 'Tampilan 3D' }).click();
+  await expect(page.getByRole('button', { name: 'Tampilan 2D' })).toBeVisible();
+  const scene = page.getByRole('img', { name: /Visualisasi 3D aliran data riset/ });
+  const fallback = page.getByText('Tampilan 3D dinonaktifkan.', { exact: false });
+  await expect(scene.or(fallback)).toBeVisible({ timeout: 20_000 });
 });
 
 test('E2E-M3-06 AI & Gateway: admin melihat key per agent; member tidak punya akses', async ({ browser }) => {

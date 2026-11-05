@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { buildIntelReportModel } from '../lib/intel-export/report-model';
-import { applyJobUpdate, buildInsightView, canCancel, canRetry, formatNet, formatUsd, kbChunks } from '../lib/intel-format';
+import {
+  applyJobUpdate,
+  buildInsightView,
+  canCancel,
+  canRetry,
+  flowEventFromJob,
+  formatNet,
+  formatUsd,
+  kbChunks,
+} from '../lib/intel-format';
 import { capableFor, type Insight, type IntelAgent, type IntelJob } from '../lib/intel-types';
 import {
   agentOption,
@@ -249,6 +258,19 @@ describe('Knowledge Base (M3_TASK_010)', () => {
     expect(d.saveToKb).toBe(true);
     expect(d.agents.index).toBe('id-strategist');
     expect(draftFromJob(job(), TODAY).saveToKb).toBe(false);
+  });
+
+  it('event aliran 3D (M3_TASK_011): tahap berjalan + token live; total null → done', () => {
+    const analyzed = job().stages.map((s) => ({ ...s, status: 'completed' as const }));
+    const running = job({
+      stages: [...analyzed, { ...indexStage('completed'), status: 'running', progress_done: 64, progress_total: 200 }],
+    });
+    expect(flowEventFromJob(running, ['kopi'])).toEqual({ stage: 'index', done: 64, total: 200, sample_tokens: ['kopi'] });
+    // analyze berjalan (fixture default), total diketahui
+    expect(flowEventFromJob(job(), [])).toEqual({ stage: 'analyze', done: 120, total: 500, sample_tokens: [] });
+    const done = job({ status: 'completed', stages: job().stages.map((s) => ({ ...s, status: 'completed', progress_total: null })) });
+    expect(flowEventFromJob(done, [])).toMatchObject({ stage: 'analyze', total: done.stages[1].progress_done });
+    expect(flowEventFromJob(job({ stages: [] }), [])).toBeNull();
   });
 
   it('badge KB: jumlah chunk hanya bila tahap index selesai', () => {

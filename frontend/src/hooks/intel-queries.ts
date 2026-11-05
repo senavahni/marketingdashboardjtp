@@ -19,6 +19,7 @@ import type {
   StageDefaults,
 } from '../lib/intel-types';
 import { getSocket, useRealtimeRoom } from '../lib/realtime';
+import type { ProjectionPoint } from '../components/intel/viz3d/types';
 import type { Page } from '../lib/types';
 
 const PAGE_SIZE = 30;
@@ -50,6 +51,8 @@ export const intelKeys = {
   events: (id: string) => ['intel', 'events', id] as const,
   items: (id: string, f: ItemFilters) => ['intel', 'items', id, f] as const,
   estimate: (ws: string, input: JobInput | null) => ['intel', 'estimate', ws, input] as const,
+  projection: (id: string, status: JobStatus) => ['intel', 'projection', id, status] as const,
+  flowTokens: (id: string) => ['intel', 'flow-tokens', id] as const,
 };
 
 /** Modul Intel nonaktif (MCP_INTEL_API_KEY kosong) → 503 FEATURE_DISABLED; UI cukup menyembunyikan fiturnya. */
@@ -122,6 +125,20 @@ export const useIntelJobs = (ws: string, filters: JobFilters) =>
 
 export const useIntelJob = (id: string | undefined) =>
   useQuery({ queryKey: intelKeys.job(id ?? ''), enabled: !!id, queryFn: () => api<IntelJob>(`/intel/jobs/${id}`), retry: false });
+
+/** Awan titik 3D (M3_TASK_011); kunci memuat status job agar diambil ulang saat job selesai. */
+export const useIntelProjection = (id: string, status: JobStatus, enabled: boolean) =>
+  useQuery({
+    queryKey: intelKeys.projection(id, status),
+    enabled,
+    queryFn: () => api<{ points: ProjectionPoint[] }>(`/intel/jobs/${id}/projection`).then((r) => r.points),
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+
+/** Kata terbaru dari event real-time tahap index (diisi `useIntelRealtime`, tanpa request). */
+export const useFlowTokens = (id: string) =>
+  useQuery({ queryKey: intelKeys.flowTokens(id), queryFn: () => [] as string[], enabled: false, initialData: [] as string[] }).data;
 
 export const useJobEvents = (id: string, enabled: boolean) =>
   useQuery({
@@ -202,6 +219,7 @@ export function useIntelRealtime(ws: string): void {
   useEffect(() => {
     const s = getSocket();
     const onUpdate = (ev: JobUpdatedEvent) => {
+      if (ev.sample_tokens?.length) qc.setQueryData(intelKeys.flowTokens(ev.id), ev.sample_tokens);
       qc.setQueriesData<InfiniteData<Page<IntelJob>>>({ queryKey: intelKeys.jobs(ws) }, (old) =>
         old ? { ...old, pages: old.pages.map((p) => ({ ...p, data: p.data.map((j) => applyJobUpdate(j, ev)) })) } : old,
       );

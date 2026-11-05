@@ -142,6 +142,11 @@ export class IntelController {
     return this.intel.events(user, jobId);
   }
 
+  @Get('intel/jobs/:id/projection')
+  projection(@CurrentUser() user: AuthUser, @Param('id', UuidPipe) jobId: string, @Headers('x-request-id') requestId?: string) {
+    return this.intel.projection(user, jobId, requestId);
+  }
+
   @Get('intel/jobs/:id')
   get(@CurrentUser() user: AuthUser, @Param('id', UuidPipe) jobId: string, @Headers('x-request-id') requestId?: string) {
     return this.intel.get(user, jobId, requestId);

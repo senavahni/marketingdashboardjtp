@@ -1,6 +1,6 @@
 # Task: Visualisasi 3D Live Data Riset (P2)
 **ID:** M3_TASK_011
-**Status:** To Do
+**Status:** Done, kecuali pengukuran kinerja di mesin target (5 Nov 2026). MCP: `services/intel/projection.py` (`pca_3d`), tool `intel_kb_projection` (chunk pertama tiap item job di koleksi `intel:<workspace_id>`, label tanpa breadcrumb ≤ 60, cache 1 jam setelah job selesai), event `intel.job.progress` tahap index membawa `sample_tokens` (≤ 20 kata, huruf saja; markup/URL/angka dibuang). Dashboard: webhook menerima `sample_tokens` dan meneruskannya sekali lewat `intel.job.updated`; `GET /intel/jobs/:id/projection` (viewer; job tanpa tahap index → titik kosong tanpa memanggil MCP); `components/intel/viz3d/` (IntelFlow3D + panel fallback 2D) dipasang di kartu "Alur kerja agent" lewat tombol **Tampilan 3D** (hanya job dengan tahap index; chunk three.js terpisah ±283 kB gzip, chunk halaman tidak bertambah). Test: MCP integrasi (`test_index_stage_saves_to_kb_scoped_and_purgeable`), unit (`test_intel_projection.py`, sanitasi token), Jest (`intel-event.service.spec.ts`, `intel-agents.spec.ts`), Vitest (`intel-viz3d.test.ts`, `flowEventFromJob`), Playwright E2E-M3-08 (proyeksi + panel 3D/fallback). **Sisa:** ukur ≥ 45 fps & < 150 MB memori pada iGPU target (belum diukur; fallback FPS < 30 tetap aktif). Catatan dev: klik pertama "Tampilan 3D" setelah `npm install` memicu reload Vite (optimasi dependency baru) — hanya di mode dev
 **Repo:** `mcp` + `marketingdashboardjtp`
 **Dependencies:** M3_TASK_010 (data di Knowledge Base), M3_TASK_004
 **Estimasi:** 6 person-days

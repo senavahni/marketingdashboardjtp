@@ -129,6 +129,33 @@ describe('IntelService.estimate (spec ke MCP)', () => {
   });
 });
 
+describe('IntelService.projection (M3_TASK_011)', () => {
+  function withJob(stages: string[], mcpJobId: string | null = 'j_mcp1') {
+    const h = harness();
+    const job = { id: 'j1', workspace_id: ws, mcp_job_id: mcpJobId, status: 'completed', stages: stages.map((stage) => ({ stage })), insight: null };
+    Object.assign(h.prisma, { intel_jobs: { findFirst: jest.fn().mockResolvedValue(job) } });
+    return h;
+  }
+  const point = { id: 'd1', x: 0.1, y: -0.2, z: 0, source: 'web', sentiment: 'neutral', label: 'Example Domain' };
+
+  it('job dengan tahap index → proxy intel_kb_projection (akses viewer cukup)', async () => {
+    const h = withJob(['collect', 'analyze', 'index']);
+    h.mcp.call.mockResolvedValue({ points: [point], method: 'pca', generated_at: '2026-11-05T04:00:00Z' });
+    const res = await h.service.projection(user, 'j1');
+    expect(h.access.assertWorkspace).toHaveBeenCalledWith(expect.anything(), ws);
+    expect(h.mcp.call).toHaveBeenCalledWith('intel_kb_projection', { workspace_id: ws, mcp_job_id: 'j_mcp1', limit: 2000 }, expect.anything(), undefined);
+    expect(res.points).toEqual([point]);
+  });
+
+  it('tanpa tahap index / belum terhubung MCP → titik kosong tanpa memanggil MCP', async () => {
+    for (const h of [withJob(['collect', 'analyze']), withJob(['collect', 'analyze', 'index'], null)]) {
+      const res = await h.service.projection(user, 'j1');
+      expect(res).toEqual({ points: [], method: 'pca', generated_at: null });
+      expect(h.mcp.call).not.toHaveBeenCalled();
+    }
+  });
+});
+
 describe('IntelService.remove (purge Knowledge Base)', () => {
   function removable(stages: string[], purge: () => Promise<unknown>) {
     const h = harness();

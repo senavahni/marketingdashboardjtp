@@ -1,4 +1,4 @@
-import { ArrowLeft, Ban, Download, FileSpreadsheet, FileText, Library, RotateCcw, Send, Trash2, XCircle } from 'lucide-react';
+import { ArrowLeft, Ban, Box, Download, FileSpreadsheet, FileText, Library, RotateCcw, Send, Trash2, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -11,11 +11,12 @@ import { Button } from '../components/ui/button';
 import { ConfirmDialog } from '../components/ui/confirm-dialog';
 import { EmptyState, FullPageSpinner, Spinner } from '../components/ui/misc';
 import { MenuItem, Popover } from '../components/ui/popover';
-import { useIntelJob, useIntelRealtime, useJobAction, useJobEvents } from '../hooks/intel-queries';
+import { IntelFlow3DPanel } from '../components/intel/viz3d/IntelFlow3DPanel';
+import { useFlowTokens, useIntelJob, useIntelProjection, useIntelRealtime, useJobAction, useJobEvents } from '../hooks/intel-queries';
 import { useAgents } from '../hooks/queries';
 import { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth-store';
-import { canCancel, canRetry, formatCount, formatPeriod, kbChunks } from '../lib/intel-format';
+import { canCancel, canRetry, flowEventFromJob, formatCount, formatPeriod, isActiveStatus, kbChunks } from '../lib/intel-format';
 import type { IntelJob } from '../lib/intel-types';
 import type { WorkspaceSummary } from '../lib/types';
 import { cn, formatDateTime, timeAgo } from '../lib/utils';
@@ -35,7 +36,11 @@ export function IntelJobPage() {
   const [tab, setTab] = useState<Tab>('summary');
   const [confirm, setConfirm] = useState<'cancel' | 'delete' | null>(null);
   const [retryKey, setRetryKey] = useState<number | null>(null);
+  const [view3d, setView3d] = useState(false);
   const { data: job, isLoading, error } = useIntelJob(jobId);
+  const hasIndex = !!job?.stages.some((s) => s.stage === 'index');
+  const projection = useIntelProjection(jobId, job?.status ?? 'queued', view3d && hasIndex);
+  const flowTokens = useFlowTokens(jobId);
   const { data: agents } = useAgents(workspace.id, true);
   const actions = useJobAction(workspace.id, jobId);
   useIntelRealtime(workspace.id);
@@ -142,9 +147,29 @@ export function IntelJobPage() {
           </div>
         )}
 
-        <Card className="mb-6" title="Alur kerja agent">
+        <Card
+          className="mb-6"
+          title="Alur kerja agent"
+          action={
+            hasIndex && (
+              <Button variant="outline" aria-pressed={view3d} onClick={() => setView3d((v) => !v)}>
+                <Box size={14} /> {view3d ? 'Tampilan 2D' : 'Tampilan 3D'}
+              </Button>
+            )
+          }
+        >
           <div data-tour="intel-timeline">
-            <StageTimeline stages={job.stages} cost={job.cost} agentName={agentName} />
+            {view3d && hasIndex ? (
+              <IntelFlow3DPanel
+                points={projection.data ?? []}
+                event={flowEventFromJob(job, flowTokens)}
+                running={isActiveStatus(job.status)}
+              >
+                <StageTimeline stages={job.stages} cost={job.cost} agentName={agentName} />
+              </IntelFlow3DPanel>
+            ) : (
+              <StageTimeline stages={job.stages} cost={job.cost} agentName={agentName} />
+            )}
           </div>
         </Card>
 

@@ -330,6 +330,26 @@ export const jobViewSchema = z.object({
 
 export const cancelOutputSchema = z.object({ cancelled: z.boolean(), status: z.enum(INTEL_JOB_STATUSES) });
 
+/** `intel_kb_projection` (M3_TASK_011): awan titik 3D hasil PCA embedding item job. */
+export const PROJECTION_MAX_POINTS = 2_000;
+export const projectionSchema = z.object({
+  points: z
+    .array(
+      z.object({
+        id: z.string(),
+        x: z.number(),
+        y: z.number(),
+        z: z.number(),
+        source: z.enum(INTEL_SOURCE_TYPES),
+        sentiment: z.enum(['positive', 'neutral', 'negative']).nullable(),
+        label: z.string().max(60),
+      }),
+    )
+    .max(PROJECTION_MAX_POINTS),
+  method: z.literal('pca'),
+  generated_at: awareDatetime.nullable(),
+});
+
 /** `intel_job_purge_index` (M3_TASK_010): dokumen job dibuang dari koleksi KB `intel:<workspace_id>`. */
 export const purgeIndexOutputSchema = z.object({ deleted_documents: z.number().int().min(0), deleted_chunks: z.number().int().min(0) });
 
@@ -396,6 +416,8 @@ export const intelEventDataSchemas = {
     done: z.number().int().min(0),
     total: z.number().int().min(0).nullable().optional(),
     message: z.string().max(300).nullable().optional(),
+    // M3_TASK_011 (tahap index): ≤ 20 kata tersanitasi untuk animasi stream 3D
+    sample_tokens: z.array(z.string().max(24)).max(20).nullable().optional(),
   }),
   'intel.job.stage.completed': z.strictObject({
     stage,
