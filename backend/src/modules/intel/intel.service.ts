@@ -21,6 +21,7 @@ import {
   jobSpecSchema,
   jobViewSchema,
   llmStatusSchema,
+  purgeIndexOutputSchema,
   sourcesStatusSchema,
 } from '../../shared/schemas/intel.schema';
 import { decodeCursor, toPage } from '../../utils/helpers/pagination.util';
@@ -41,7 +42,8 @@ import {
 const CACHE_SECONDS = 60;
 const EVENTS_LIMIT = 500;
 const ACTIVE_STATUSES: intel_job_status[] = ['queued', 'collecting', 'analyzing', 'indexing', 'cancelling'];
-const stageCapability: Record<'collect' | 'analyze', 'collect' | 'analyze'> = { collect: 'collect', analyze: 'analyze' };
+type AgentStage = 'collect' | 'analyze' | 'index';
+const AGENT_STAGES: AgentStage[] = ['collect', 'analyze', 'index'];
 
 type JobInput = ReturnType<typeof intelJobInputSchema.parse>;
 
@@ -97,7 +99,7 @@ export class IntelService {
     this.assertEnabled();
     await this.access.assertWorkspace(user.id, workspaceId);
     const rows = await this.prisma.intel_stage_defaults.findMany({
-      where: { workspace_id: workspaceId, stage: { in: ['collect', 'analyze'] } },
+      where: { workspace_id: workspaceId, stage: { in: AGENT_STAGES } },
       include: { agent: { select: { id: true, name: true, mcp_agent_key: true } } },
     });
     return {
@@ -109,11 +111,10 @@ export class IntelService {
     this.assertEnabled();
     await this.access.assertWorkspace(user.id, workspaceId, 'admin');
     const input = stageDefaultsInputSchema.parse(raw);
-    const profiles =
-      input.collect || input.analyze
-        ? await this.cachedMcp('intel:agents', false, () => this.mcp.call('intel_agents_list', {}, agentsListSchema, requestId))
-        : null;
-    const selections = Object.entries(input).filter((entry): entry is ['collect' | 'analyze', string] => typeof entry[1] === 'string');
+    const selections = Object.entries(input).filter((entry): entry is [AgentStage, string] => typeof entry[1] === 'string');
+    const profiles = selections.length
+      ? await this.cachedMcp('intel:agents', false, () => this.mcp.call('intel_agents_list', {}, agentsListSchema, requestId))
+      : null;
     const selectedAgents = await Promise.all(
       selections.map(async ([stage, agentId]) => {
         const agent = await this.prisma.agents.findFirst({
@@ -163,6 +164,7 @@ export class IntelService {
     const jobId = randomUUID();
     const collect = await this.localAgent(workspaceId, input.agents.collect);
     const analyze = await this.localAgent(workspaceId, input.agents.analyze);
+    const index = input.agents.index ? await this.localAgent(workspaceId, input.agents.index) : null;
     const rows = await this.prisma.intel_jobs.create({
       data: {
         id: jobId,
@@ -178,6 +180,7 @@ export class IntelService {
           create: [
             { stage: 'collect', agent_id: collect.id, agent_key: collect.mcp_agent_key },
             { stage: 'analyze', agent_id: analyze.id, agent_key: analyze.mcp_agent_key },
+            ...(index ? [{ stage: 'index' as const, agent_id: index.id, agent_key: index.mcp_agent_key }] : []),
           ],
         },
       },
@@ -360,7 +363,20 @@ export class IntelService {
         }
       }
     }
+    if (job.mcp_job_id && job.stages.some((stage) => stage.stage === 'index')) {
+      await this.purgeIndex(job.workspace_id, job.mcp_job_id, requestId);
+    }
     await this.prisma.intel_jobs.update({ where: { id: job.id }, data: { deleted_at: new Date() } });
+  }
+
+  /** Buang dokumen job dari KB; best-effort agar MCP mati tidak menghalangi penghapusan job. */
+  private async purgeIndex(workspaceId: string, mcpJobId: string, requestId?: string) {
+    try {
+      const out = await this.mcp.call('intel_job_purge_index', { workspace_id: workspaceId, mcp_job_id: mcpJobId }, purgeIndexOutputSchema, requestId);
+      this.logger.log({ mcpJobId, ...out }, 'Dokumen KB job intel dihapus');
+    } catch (error) {
+      this.logger.warn({ mcpJobId, err: error instanceof Error ? error.message : String(error) }, 'Gagal menghapus dokumen KB job intel');
+    }
   }
 
   /** Log event webhook job (tab Log, M3_TASK_004); hanya metadata, tanpa payload. */
@@ -420,13 +436,15 @@ export class IntelService {
   }
 
   private async toMcpSpec(workspaceId: string, input: JobInput, requestId?: string) {
-    const [collect, analyze] = await Promise.all([
+    const [collect, analyze, index] = await Promise.all([
       this.localAgent(workspaceId, input.agents.collect),
       this.localAgent(workspaceId, input.agents.analyze),
+      input.agents.index ? this.localAgent(workspaceId, input.agents.index) : Promise.resolve(null),
     ]);
     const profiles = await this.cachedMcp('intel:agents', false, () => this.mcp.call('intel_agents_list', {}, agentsListSchema, requestId));
     this.assertCapability(collect.mcp_agent_key, 'collect', profiles.agents);
     this.assertCapability(analyze.mcp_agent_key, 'analyze', profiles.agents);
+    if (index) this.assertCapability(index.mcp_agent_key, 'index', profiles.agents);
     assertSourcesSupported(collect.mcp_agent_key, input.spec.sources, profiles.agents);
     const { aspects, ...spec } = input.spec;
     return jobSpecSchema.parse({
@@ -434,15 +452,16 @@ export class IntelService {
       stages: {
         collect: { agent_key: collect.mcp_agent_key },
         analyze: { agent_key: analyze.mcp_agent_key, aspects, method: 'auto' },
+        ...(index ? { index: { agent_key: index.mcp_agent_key, enabled: true } } : {}),
       },
     });
   }
 
-  private assertCapability(agentKey: string, capability: 'collect' | 'analyze', profiles: AgentInfo[]) {
+  private assertCapability(agentKey: string, capability: AgentStage, profiles: AgentInfo[]) {
     const profile = profiles.find((item) => item.agent_key === agentKey);
     if (!profile) throw Errors.business(ErrorCode.UNKNOWN_AGENT, 'Agent tidak dikenal oleh layanan MCP');
     if (!profile.is_active) throw Errors.business(ErrorCode.AGENT_INACTIVE, 'Agent tidak aktif');
-    if (!profile.capabilities.includes(stageCapability[capability])) {
+    if (!profile.capabilities.includes(capability)) {
       throw Errors.business(ErrorCode.AGENT_NOT_CAPABLE, `Agent tidak memiliki kapabilitas ${capability}`);
     }
   }

@@ -15,6 +15,7 @@ export type IntelToolName =
   | 'intel_job_create'
   | 'intel_job_get'
   | 'intel_job_cancel'
+  | 'intel_job_purge_index'
   | 'intel_items'
   | 'intel_llm_status';
 

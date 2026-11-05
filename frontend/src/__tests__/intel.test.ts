@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildIntelReportModel } from '../lib/intel-export/report-model';
-import { applyJobUpdate, buildInsightView, canCancel, canRetry, formatNet, formatUsd } from '../lib/intel-format';
+import { applyJobUpdate, buildInsightView, canCancel, canRetry, formatNet, formatUsd, kbChunks } from '../lib/intel-format';
 import { capableFor, type Insight, type IntelAgent, type IntelJob } from '../lib/intel-types';
 import {
   agentOption,
@@ -208,6 +208,53 @@ describe('validasi wizard (M3_TASK_004)', () => {
     expect(d.aspects).toEqual(['harga']);
     expect(d.agents).toEqual({ collect: 'id-researcher', analyze: 'id-analyst' });
     expect(firstInvalidStep(d)).toBeNull();
+  });
+});
+
+describe('Knowledge Base (M3_TASK_010)', () => {
+  const indexStage = (status: 'completed' | 'skipped', chunks?: number) => ({
+    stage: 'index' as const,
+    agent_id: 'id-strategist',
+    agent_key: 'strategist',
+    status,
+    progress_done: 0,
+    progress_total: null,
+    error: null,
+    started_at: null,
+    finished_at: null,
+    stats: chunks === undefined ? null : { documents: 6, chunks },
+  });
+
+  it('toggle mati → body tanpa agent index; nyala → agent index wajib & ikut terkirim', () => {
+    expect(emptyDraft(TODAY).saveToKb).toBe(false);
+    const off = { ...validDraft(), agents: { collect: 'researcher', analyze: 'analyst', index: 'strategist' } };
+    expect(draftToInput(off).agents).toEqual({ collect: 'researcher', analyze: 'analyst' });
+
+    const on = { ...validDraft(), saveToKb: true };
+    expect(validateStep(on, 2)).toEqual({ 'agents.index': 'Pilih agent indeks' });
+    const chosen = { ...on, agents: { ...on.agents, index: 'strategist' } };
+    expect(firstInvalidStep(chosen)).toBeNull();
+    expect(draftToInput(chosen).agents).toEqual({ collect: 'researcher', analyze: 'analyst', index: 'strategist' });
+  });
+
+  it('agent tahap Indeks: hanya kapabilitas index; default dari stage-defaults', () => {
+    expect(capableFor(AGENTS, 'index').map((a) => a.name)).toEqual(['researcher', 'analyst', 'strategist']);
+    expect(agentOption(AGENTS[3], 'index', ['x'])).toEqual({ disabled: true, reason: 'Tidak punya kapabilitas Indeks' });
+    const defaults = { index: { id: 'strategist', name: 'strategist', mcp_agent_key: 'strategist' } };
+    expect(defaultAgentId(AGENTS, 'index', ['x'], defaults)).toBe('strategist');
+  });
+
+  it('mode Ulangi mempertahankan pilihan simpan ke KB', () => {
+    const d = draftFromJob(job({ stages: [...job().stages, indexStage('completed', 7)] }), TODAY);
+    expect(d.saveToKb).toBe(true);
+    expect(d.agents.index).toBe('id-strategist');
+    expect(draftFromJob(job(), TODAY).saveToKb).toBe(false);
+  });
+
+  it('badge KB: jumlah chunk hanya bila tahap index selesai', () => {
+    expect(kbChunks(job({ stages: [...job().stages, indexStage('completed', 7)] }))).toBe(7);
+    expect(kbChunks(job({ stages: [...job().stages, indexStage('skipped')] }))).toBeNull();
+    expect(kbChunks(job())).toBeNull();
   });
 });
 

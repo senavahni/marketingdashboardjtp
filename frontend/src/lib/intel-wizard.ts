@@ -29,7 +29,9 @@ export interface WizardDraft {
   since: string;
   until: string;
   aspects: string[];
-  agents: Record<SelectableStage, string>;
+  /** Simpan hasil ke Knowledge Base (tahap Indeks, M3_TASK_010). */
+  saveToKb: boolean;
+  agents: { collect: string; analyze: string; index?: string };
 }
 
 export type DraftErrors = Partial<Record<string, string>>;
@@ -56,6 +58,7 @@ export function emptyDraft(today = new Date()): WizardDraft {
     trends: { keywords: [], geo: 'ID' },
     ...presetPeriod(30, today),
     aspects: [],
+    saveToKb: false,
     agents: { collect: '', analyze: '' },
   };
 }
@@ -133,6 +136,7 @@ function agentErrors(d: WizardDraft): DraftErrors {
   const e: DraftErrors = {};
   if (!d.agents.collect) e['agents.collect'] = 'Pilih agent pengumpul';
   if (!d.agents.analyze) e['agents.analyze'] = 'Pilih agent analis';
+  if (d.saveToKb && !d.agents.index) e['agents.index'] = 'Pilih agent indeks';
   return e;
 }
 
@@ -182,13 +186,18 @@ export function draftToInput(d: WizardDraft): JobInput {
       sources: draftToSources(d),
       aspects: d.aspects,
     },
-    agents: { ...d.agents },
+    agents: {
+      collect: d.agents.collect,
+      analyze: d.agents.analyze,
+      ...(d.saveToKb && d.agents.index ? { index: d.agents.index } : {}),
+    },
   };
 }
 
 /** Mode Ulangi: draft diisi dari spec + agent job lama. */
 export function draftFromJob(job: IntelJob, today = new Date()): WizardDraft {
   const base = emptyDraft(today);
+  const index = job.stages.find((s) => s.stage === 'index');
   const draft: WizardDraft = {
     ...base,
     title: job.spec.title,
@@ -197,9 +206,11 @@ export function draftFromJob(job: IntelJob, today = new Date()): WizardDraft {
     since: job.spec.period.since,
     until: job.spec.period.until,
     aspects: job.spec.stages?.analyze.aspects ?? [],
+    saveToKb: !!index,
     agents: {
       collect: job.stages.find((s) => s.stage === 'collect')?.agent_id ?? '',
       analyze: job.stages.find((s) => s.stage === 'analyze')?.agent_id ?? '',
+      ...(index ? { index: index.agent_id } : {}),
     },
   };
   for (const s of job.spec.sources) {

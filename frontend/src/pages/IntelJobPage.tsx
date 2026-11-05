@@ -1,4 +1,4 @@
-import { ArrowLeft, Ban, Download, FileSpreadsheet, FileText, RotateCcw, Send, Trash2, XCircle } from 'lucide-react';
+import { ArrowLeft, Ban, Download, FileSpreadsheet, FileText, Library, RotateCcw, Send, Trash2, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router';
 import { toast } from 'sonner';
@@ -15,7 +15,7 @@ import { useIntelJob, useIntelRealtime, useJobAction, useJobEvents } from '../ho
 import { useAgents } from '../hooks/queries';
 import { errorMessage } from '../lib/api';
 import { useAuth } from '../lib/auth-store';
-import { canCancel, canRetry, formatPeriod } from '../lib/intel-format';
+import { canCancel, canRetry, formatCount, formatPeriod, kbChunks } from '../lib/intel-format';
 import type { IntelJob } from '../lib/intel-types';
 import type { WorkspaceSummary } from '../lib/types';
 import { cn, formatDateTime, timeAgo } from '../lib/utils';
@@ -57,6 +57,7 @@ export function IntelJobPage() {
   const isAdmin = workspace.role === 'owner' || workspace.role === 'admin';
   const canModify = workspace.role !== 'viewer' && (isAdmin || job.created_by === userId);
   const notConnected = !job.mcp_job_id && job.status === 'queued';
+  const chunks = kbChunks(job);
 
   const runCancel = () =>
     actions.cancel.mutate(undefined, {
@@ -85,6 +86,11 @@ export function IntelJobPage() {
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <JobStatusBadge status={job.status} />
               <SourceChips sources={job.sources} />
+              {chunks !== null && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#E6F4F2] px-2.5 py-0.5 text-[12px] font-medium text-[#0B7A6E]">
+                  <Library size={12} aria-hidden /> Tersimpan di KB ({formatCount(chunks)} chunk)
+                </span>
+              )}
             </div>
             <h1 className="text-[26px] leading-tight font-semibold tracking-tight text-[#0F2340]">{job.title}</h1>
             <p className="mt-1 text-[13px] text-ink-soft">

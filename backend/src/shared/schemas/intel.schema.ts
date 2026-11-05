@@ -330,6 +330,9 @@ export const jobViewSchema = z.object({
 
 export const cancelOutputSchema = z.object({ cancelled: z.boolean(), status: z.enum(INTEL_JOB_STATUSES) });
 
+/** `intel_job_purge_index` (M3_TASK_010): dokumen job dibuang dari koleksi KB `intel:<workspace_id>`. */
+export const purgeIndexOutputSchema = z.object({ deleted_documents: z.number().int().min(0), deleted_chunks: z.number().int().min(0) });
+
 export const itemsPageSchema = z.object({
   cols: z.array(z.string()),
   rows: z.array(z.array(z.unknown())),

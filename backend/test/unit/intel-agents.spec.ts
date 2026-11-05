@@ -84,6 +84,12 @@ describe('IntelService.updateStageDefaults', () => {
     expect(tx.intel_stage_defaults.upsert).toHaveBeenCalledTimes(2);
   });
 
+  it('menyimpan default tahap index (agent dengan kapabilitas index)', async () => {
+    const { service, tx } = harness();
+    await service.updateStageDefaults(user, ws, { index: ids.strategist });
+    expect(tx.intel_stage_defaults.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { workspace_id_stage: { workspace_id: ws, stage: 'index' } } }));
+  });
+
   it.each([
     [{ collect: ids.strategist }, 'AGENT_NOT_CAPABLE'],
     [{ analyze: ids.strategist }, 'AGENT_NOT_CAPABLE'],
@@ -108,6 +114,43 @@ describe('IntelService.estimate (spec ke MCP)', () => {
     const [, args] = mcp.call.mock.calls.find(([tool]: [string]) => tool === 'intel_job_estimate');
     expect(args.spec).not.toHaveProperty('aspects');
     expect(args.spec.stages.analyze).toMatchObject({ agent_key: 'analyst', aspects: ['harga'] });
+    expect(args.spec.stages).not.toHaveProperty('index');
+  });
+
+  it('agents.index → stages.index aktif dengan agent berkapabilitas index (M3_TASK_010)', async () => {
+    const { service, mcp } = harness();
+    mcp.call.mockImplementation((tool: string) => Promise.resolve(tool === 'intel_agents_list' ? { agents: PROFILES } : { estimate: true }));
+    const spec = { title: 'Uji', language: 'id', period: { since: '2026-10-29', until: '2026-11-05' }, sources: [{ type: 'web', mode: 'scrape', urls: ['https://example.com/'] }] };
+    await service.estimate(user, ws, { spec, agents: { collect: ids.researcher, analyze: ids.analyst, index: ids.strategist } });
+    const [, args] = mcp.call.mock.calls.find(([tool]: [string]) => tool === 'intel_job_estimate');
+    expect(args.spec.stages.index).toEqual({ agent_key: 'strategist', enabled: true });
+
+    expect(await errorCode(service.estimate(user, ws, { spec, agents: { collect: ids.researcher, analyze: ids.analyst, index: ids.ghost } }))).toBe('UNKNOWN_AGENT');
+  });
+});
+
+describe('IntelService.remove (purge Knowledge Base)', () => {
+  function removable(stages: string[], purge: () => Promise<unknown>) {
+    const h = harness();
+    const job = { id: 'j1', workspace_id: ws, mcp_job_id: 'j_mcp1', status: 'completed', created_by: '77777777-7777-4777-8777-777777777777', stages: stages.map((stage) => ({ stage })), insight: null };
+    Object.assign(h.prisma, { intel_jobs: { findFirst: jest.fn().mockResolvedValue(job), update: jest.fn().mockResolvedValue(job) } });
+    h.mcp.call.mockImplementation((tool: string) => (tool === 'intel_job_purge_index' ? purge() : Promise.resolve({})));
+    return h;
+  }
+
+  it('job dengan tahap index → panggil intel_job_purge_index lalu soft delete', async () => {
+    const h = removable(['collect', 'analyze', 'index'], () => Promise.resolve({ deleted_documents: 6, deleted_chunks: 7 }));
+    await h.service.remove(user, 'j1');
+    expect(h.mcp.call).toHaveBeenCalledWith('intel_job_purge_index', { workspace_id: ws, mcp_job_id: 'j_mcp1' }, expect.anything(), undefined);
+    expect((h.prisma as unknown as { intel_jobs: { update: jest.Mock } }).intel_jobs.update).toHaveBeenCalledWith(expect.objectContaining({ data: { deleted_at: expect.any(Date) } }));
+  });
+
+  it('purge gagal tidak menghalangi penghapusan; tanpa tahap index tidak memanggil purge', async () => {
+    const failing = removable(['collect', 'analyze', 'index'], () => Promise.reject(new Error('MCP mati')));
+    await expect(failing.service.remove(user, 'j1')).resolves.toBeUndefined();
+    const plain = removable(['collect', 'analyze'], () => Promise.resolve({}));
+    await plain.service.remove(user, 'j1');
+    expect(plain.mcp.call).not.toHaveBeenCalledWith('intel_job_purge_index', expect.anything(), expect.anything(), undefined);
   });
 });
 

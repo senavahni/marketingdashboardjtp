@@ -4,7 +4,7 @@
  */
 
 export type Capability = 'collect' | 'analyze' | 'index';
-export type SelectableStage = 'collect' | 'analyze';
+export type SelectableStage = 'collect' | 'analyze' | 'index';
 export type KeySource = 'agent' | 'system' | 'env';
 export type SourceType = 'x' | 'threads' | 'web' | 'trends';
 export type Sentiment = 'positive' | 'neutral' | 'negative';
@@ -100,7 +100,8 @@ export type JobSpec = {
 /** Body POST jobs / jobs/estimate (agent dipilih dengan ID agent Dashboard). */
 export type JobInput = {
   spec: { title: string; language: 'id' | 'en'; period: { since: string; until: string }; sources: SourceSpec[]; aspects: string[] };
-  agents: Record<SelectableStage, string>;
+  /** `index` diisi = simpan hasil ke Knowledge Base (M3_TASK_010). */
+  agents: { collect: string; analyze: string; index?: string };
 };
 
 // ---------------------------------------------------------------------------- hasil
@@ -176,6 +177,8 @@ export type JobStage = {
   error: ErrorInfo | null;
   started_at: string | null;
   finished_at: string | null;
+  /** Statistik `intel.job.stage.completed` (index: documents, created, skipped, chunks, collection). */
+  stats?: { documents?: number; chunks?: number; [key: string]: unknown } | null;
 };
 
 export type IntelJob = {
@@ -220,7 +223,11 @@ export type JobUpdatedEvent = {
 };
 
 export const CAPABILITY_LABEL: Record<Capability, string> = { collect: 'Kumpulkan', analyze: 'Analisis', index: 'Indeks' };
-export const STAGE_LABEL: Record<SelectableStage, string> = { collect: 'Kumpulkan data', analyze: 'Analisis' };
+export const STAGE_LABEL: Record<SelectableStage, string> = {
+  collect: 'Kumpulkan data',
+  analyze: 'Analisis',
+  index: 'Indeks ke Knowledge Base',
+};
 export const KEY_SOURCE_LABEL: Record<KeySource, string> = { agent: 'Key agent', system: 'Key system', env: 'Key env (fallback)' };
 
 /** Toolset MCP yang dibutuhkan tiap tipe sumber (sama dengan MCP capabilities.py). */

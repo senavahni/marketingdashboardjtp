@@ -16,7 +16,7 @@ import {
 import { cn } from '../../lib/utils';
 import { Spinner } from '../ui/misc';
 
-const STAGES: SelectableStage[] = ['collect', 'analyze'];
+const STAGES: SelectableStage[] = ['collect', 'analyze', 'index'];
 const KEY_STATUS_CLASS: Record<LlmAgentStatus['key_status'], string> = {
   active: 'bg-emerald-50 text-emerald-700',
   revoked: 'bg-stone-100 text-stone-600',

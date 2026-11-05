@@ -1,6 +1,6 @@
 # Task: Simpan Hasil Riset ke Knowledge Base (P1)
 **ID:** M3_TASK_010
-**Status:** To Do
+**Status:** Done (5 Nov 2026). MCP: `services/intel/kb_index.py` (koleksi `intel:<workspace_id>`, satu dokumen per item + ringkasan, dedupe `sha256(text)`, embedding batch 64, metadata per chunk), tahap `index` di `IntelPipelineHandler` (event progres, biaya `cost.by_stage`, gagal = tidak fatal → `skipped` + warning `INDEX_FAILED`), estimasi tahap index, tool `intel_job_purge_index`. Dashboard: `agents.index` opsional, baris tahap index, default per tahap `index`, purge saat job dihapus (best-effort), wizard toggle **Simpan ke Knowledge Base** + agent Indeks, badge "Tersimpan di KB (n chunk)". Test: MCP `tests/integration/test_intel.py::test_index_stage_saves_to_kb_scoped_and_purgeable`, Jest `intel-agents.spec.ts`, Vitest `intel.test.ts`, Playwright E2E-M3-08 (stack nyata). Catatan: teks yang sama dengan job sebelumnya di workspace yang sama tidak di-embed ulang dan tetap milik job pertama (purge job kedua tidak menghapusnya)
 **Repo:** `mcp` + `marketingdashboardjtp`
 **Dependencies:** M3_TASK_007, M3_TASK_008
 **Estimasi:** 3 person-days

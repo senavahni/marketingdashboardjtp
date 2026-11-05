@@ -69,6 +69,13 @@ export const isActiveStatus = (s: JobStatus) => ACTIVE.includes(s);
 export const canCancel = (s: JobStatus) => CANCELLABLE.includes(s);
 export const canRetry = (s: JobStatus) => RETRYABLE.includes(s);
 
+/** Jumlah chunk tersimpan di Knowledge Base (tahap index selesai), selain itu null. */
+export function kbChunks(job: IntelJob): number | null {
+  const index = job.stages.find((s) => s.stage === 'index');
+  const chunks = index?.status === 'completed' ? index.stats?.chunks : undefined;
+  return typeof chunks === 'number' ? chunks : null;
+}
+
 // ---------------------------------------------------------------------------- angka
 
 const idNumber = new Intl.NumberFormat('id-ID');

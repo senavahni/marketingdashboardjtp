@@ -192,6 +192,48 @@ test('E2E-M3-05 batalkan job berjalan lalu ulangi → job baru dengan retry_of_j
   await api.post(`/api/v1/intel/jobs/${retryId}/cancel`, { headers: auth('member') });
 });
 
+test('E2E-M3-08 simpan ke Knowledge Base: toggle wizard → tahap Indeks → badge chunk (M3_TASK_010)', async () => {
+  test.setTimeout(JOB_TIMEOUT_MS + 30_000);
+  const kbTitle = `E2E KB ${RUN}`;
+  await page.goto(`/w/${WS}/intel`);
+  await page.getByRole('button', { name: 'Job Baru' }).click();
+  const wizard = page.getByRole('dialog', { name: 'Job riset baru' });
+  await wizard.getByLabel('Judul riset').fill(kbTitle);
+  const x = wizard.getByRole('checkbox', { name: /^X / });
+  if ((await x.getAttribute('aria-checked')) === 'true') await x.click();
+  await wizard.getByRole('checkbox', { name: /^Web / }).click();
+  await wizard.getByPlaceholder('https://contoh.id/artikel').fill(URL_UNDER_TEST);
+  await wizard.getByPlaceholder('https://contoh.id/artikel').press('Enter');
+  await wizard.getByRole('button', { name: 'Lanjut' }).click();
+  await wizard.getByRole('button', { name: '7 hari terakhir' }).click();
+  await wizard.getByRole('button', { name: 'Lanjut' }).click();
+
+  const indexGroup = wizard.getByRole('radiogroup', { name: 'Indeks ke Knowledge Base' });
+  await expect(indexGroup).toHaveCount(0);
+  await wizard.getByRole('checkbox', { name: /Simpan ke Knowledge Base/ }).check();
+  await expect(indexGroup.getByRole('radio', { name: /Agent_Researcher/ })).toBeEnabled();
+  await indexGroup.getByText('Agent_Strategist').click();
+  await expect(indexGroup.getByRole('radio', { name: /Agent_Strategist/ })).toBeChecked();
+  await wizard.getByRole('button', { name: 'Lanjut' }).click();
+
+  await expect(wizard.getByText('Indeks', { exact: true })).toBeVisible({ timeout: 45_000 });
+  const run = wizard.getByRole('button', { name: 'Jalankan riset' });
+  await expect(run).toBeEnabled({ timeout: 45_000 });
+  await run.click();
+  await page.waitForURL(new RegExp(`/w/${WS}/intel/[0-9a-f-]{36}$`));
+  const kbJob = page.url().split('/').pop() as string;
+  cleanup.push(kbJob);
+
+  await expect(jobHeader(page).getByText('Selesai', { exact: true })).toBeVisible({ timeout: JOB_TIMEOUT_MS });
+  await expect(jobHeader(page).getByText(/Tersimpan di KB \(\d+ chunk\)/)).toBeVisible();
+  const view = (await (await api.get(`/api/v1/intel/jobs/${kbJob}`, { headers: auth('member') })).json()) as {
+    stages: { stage: string; agent_key: string; status: string }[];
+    cost: { by_stage: { stage: string; agent_key: string }[] };
+  };
+  expect(view.stages.find((s) => s.stage === 'index')).toMatchObject({ agent_key: 'strategist', status: 'completed' });
+  expect(view.cost.by_stage).toEqual(expect.arrayContaining([expect.objectContaining({ stage: 'index', agent_key: 'strategist' })]));
+});
+
 test('E2E-M3-06 AI & Gateway: admin melihat key per agent; member tidak punya akses', async ({ browser }) => {
   const owner = await newPageAs(browser, 'owner');
   await owner.goto(`/w/${WS}`);

@@ -22,7 +22,8 @@ export const intelJobInputSchema = z.strictObject({
       .refine((sources) => new Set(sources.map((source) => source.type)).size === sources.length, 'maksimal satu sumber per type'),
     aspects: z.array(z.string().trim().min(1).max(40)).max(10).default([]),
   }),
-  agents: z.strictObject({ collect: uuid, analyze: uuid }),
+  // index diisi = simpan hasil ke Knowledge Base (M3_TASK_010)
+  agents: z.strictObject({ collect: uuid, analyze: uuid, index: uuid.optional() }),
 });
 
 export const createIntelJobSchema = intelJobInputSchema.extend({
@@ -33,6 +34,7 @@ export const createIntelJobSchema = intelJobInputSchema.extend({
 export const stageDefaultsInputSchema = z.strictObject({
   collect: uuid.optional(),
   analyze: uuid.optional(),
+  index: uuid.optional(),
 });
 
 export const intelJobsQuerySchema = z.strictObject({

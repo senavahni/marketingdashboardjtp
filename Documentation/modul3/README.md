@@ -101,7 +101,8 @@ Sama dengan [Modul 1 README §5](../modul1/README.md#5-definition-of-done-berlak
 | 007 | ✅ Selesai (repo mcp) — toolset `intel` 8 tool, job `intel_pipeline`, outbox per job, atribusi LLM per agent; migrasi `0003_intel` diterapkan ke DB |
 | 001, 002 | Backend dikerjakan (commit `017b1e1`); migrasi `20261104000000_m3_intel` + seed diterapkan ke DB lokal |
 | 008 | ✅ Selesai — wizard langkah 3 memakai default per tahap, diuji E2E-M3-01 |
-| 009 | 🟡 Kode, provisioning, biaya per tahap di detail job & uji manual `/admin/requests` (`X-Caller-Agent`, `caller_task`) selesai (5 Nov 2026). Sisa: credential MCP `analyst` & `system` masih berisi admin key Gateway → ganti dengan `gateway-keys provision` (lihat TASK_009 §B); harga model gpt-5 di Gateway belum diisi (biaya Gateway $0); rotasi UI (P1) |
+| 009 | 🟡 Kode, provisioning, biaya per tahap di detail job & uji manual `/admin/requests` (`X-Caller-Agent`, `caller_task`) selesai (5 Nov 2026). Credential `analyst`/`system` sudah key project `marketing-mcp`, harga model & biaya aktual provider di konsol Gateway. Sisa: `ANTHROPIC_ADMIN_KEY` (opsional), rotasi UI (P1) |
 | 003 | ✅ Selesai — rancangan + state & arah visual (§B.8–B.9) |
 | 004, 005 | ✅ Selesai — UI + Vitest + Playwright stack nyata `frontend/e2e/intel.stack.e2e.ts` (E2E-M3-01..07, sumber Web). Uji 5.000 item X menunggu profil browser X login (TASK_006 §C) |
-| 006, 010 – 012 | Belum dimulai |
+| 010 | ✅ Selesai — tahap Indeks ke KB `intel:<workspace_id>`, purge saat hapus job, wizard toggle + badge; diuji MCP (integrasi), Jest, Vitest, Playwright E2E-M3-08 |
+| 006, 011 – 012 | Belum dimulai |
