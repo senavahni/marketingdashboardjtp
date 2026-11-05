@@ -11,7 +11,7 @@ export const DEFAULT_ZOOM: TimelineZoom = 'day';
 export const ZOOM_LABEL: Record<TimelineZoom, string> = { hour: 'Jam', day: 'Hari', week: 'Minggu', month: 'Bulan' };
 
 export const HOUR_W = 40;
-export const DAY_W: Record<TimelineZoom, number> = { hour: 24 * HOUR_W, day: 36, week: 14, month: 4 };
+export const DAY_W: Record<TimelineZoom, number> = { hour: 24 * HOUR_W, day: 36, week: 14, month: 6 };
 
 // Zoom lebar (minggu/bulan) butuh rentang minimal agar header tidak terlihat kosong
 const MIN_SPAN_DAYS: Record<TimelineZoom, number> = { hour: 0, day: 0, week: 112, month: 366 };

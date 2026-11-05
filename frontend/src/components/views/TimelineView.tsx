@@ -263,8 +263,7 @@ export function TimelineView({ tasks }: { tasks: Task[] }) {
                   className={cn(
                     'absolute top-6 h-6 text-center text-[11px] leading-6',
                     zoom !== 'day' && 'border-l border-line',
-                    c.weekend && 'bg-stone-100/80',
-                    c.today ? 'bg-red-50 font-semibold text-red-600' : 'text-ink-faint',
+                    c.today ? 'bg-red-50 font-semibold text-red-600' : cn('text-ink-faint', c.weekend && 'bg-stone-100/80'),
                   )}
                   style={{ left: c.left, width: c.width }}
                 >
@@ -324,13 +323,14 @@ export function TimelineView({ tasks }: { tasks: Task[] }) {
                         title={`${task.title}\n${formatRange(ps, pe)}`}
                         className={cn(
                           'absolute top-[6px] flex h-6 items-center outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                          task.is_milestone && 'justify-center',
                           canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
                           isDragging && 'z-20 shadow-lg',
                         )}
                         style={{ left: geo.left, width: geo.width }}
                       >
                         {task.is_milestone ? (
-                          <div className="mx-auto h-4 w-4 rotate-45 rounded-[2px] bg-amber-500 shadow" />
+                          <div className="h-4 w-4 shrink-0 rotate-45 rounded-[2px] bg-amber-500 shadow" />
                         ) : (
                           <div
                             className={cn(
