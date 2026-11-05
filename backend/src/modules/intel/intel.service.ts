@@ -428,11 +428,12 @@ export class IntelService {
     this.assertCapability(collect.mcp_agent_key, 'collect', profiles.agents);
     this.assertCapability(analyze.mcp_agent_key, 'analyze', profiles.agents);
     assertSourcesSupported(collect.mcp_agent_key, input.spec.sources, profiles.agents);
+    const { aspects, ...spec } = input.spec;
     return jobSpecSchema.parse({
-      ...input.spec,
+      ...spec,
       stages: {
         collect: { agent_key: collect.mcp_agent_key },
-        analyze: { agent_key: analyze.mcp_agent_key, aspects: input.spec.aspects, method: 'auto' },
+        analyze: { agent_key: analyze.mcp_agent_key, aspects, method: 'auto' },
       },
     });
   }

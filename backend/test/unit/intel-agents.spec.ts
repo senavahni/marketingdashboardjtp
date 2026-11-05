@@ -96,6 +96,21 @@ describe('IntelService.updateStageDefaults', () => {
   });
 });
 
+describe('IntelService.estimate (spec ke MCP)', () => {
+  it('memindahkan aspects ke stages.analyze dan lolos jobSpecSchema strict', async () => {
+    const { service, mcp } = harness();
+    mcp.call.mockImplementation((tool: string) => Promise.resolve(tool === 'intel_agents_list' ? { agents: PROFILES } : { estimate: true }));
+    const input = {
+      spec: { title: 'Uji', language: 'id', period: { since: '2026-10-29', until: '2026-11-05' }, sources: [{ type: 'web', mode: 'scrape', urls: ['https://example.com/'] }], aspects: ['harga'] },
+      agents: { collect: ids.researcher, analyze: ids.analyst },
+    };
+    await service.estimate(user, ws, input);
+    const [, args] = mcp.call.mock.calls.find(([tool]: [string]) => tool === 'intel_job_estimate');
+    expect(args.spec).not.toHaveProperty('aspects');
+    expect(args.spec.stages.analyze).toMatchObject({ agent_key: 'analyst', aspects: ['harga'] });
+  });
+});
+
 describe('assertSourcesSupported', () => {
   it('menolak sumber web bila agent collect tidak punya toolset web', () => {
     expect(() => assertSourcesSupported('researcher', [{ type: 'x' }, { type: 'web' }, { type: 'trends' }], PROFILES)).not.toThrow();

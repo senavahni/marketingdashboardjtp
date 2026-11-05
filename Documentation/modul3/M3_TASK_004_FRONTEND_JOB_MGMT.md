@@ -1,6 +1,6 @@
 # Task: Frontend — Daftar Job, Wizard & Status Real-time
 **ID:** M3_TASK_004
-**Status:** In Progress (4 Nov 2026) — implementasi & Vitest selesai (`pages/Intel*.tsx`, `components/intel/`, `hooks/intel-queries.ts`, `lib/intel-wizard.ts`, `lib/intel-format.ts`; endpoint baru `GET /intel/jobs/:id/events` untuk tab Log). **Sisa:** Playwright melawan Mock MCP & uji manual di stack nyata
+**Status:** Done (5 Nov 2026) — implementasi & Vitest (`pages/Intel*.tsx`, `components/intel/`, `hooks/intel-queries.ts`, `lib/intel-wizard.ts`, `lib/intel-format.ts`; endpoint `GET /intel/jobs/:id/events` untuk tab Log). Playwright dijalankan **melawan stack nyata** (Mock MCP intel belum ada): `frontend/e2e/intel.stack.e2e.ts` E2E-M3-01 (wizard), 02/03 (progres tanpa refresh), 05 (batal & ulangi), 07 (viewer). Perbaikan: `toMcpSpec` meneruskan `aspects` ke `jobSpecSchema` strict → estimasi/buat job selalu 500 (unit test di `intel-agents.spec.ts`)
 **Repo:** `marketingdashboardjtp`
 **Dependencies:** M3_TASK_002, M3_TASK_003
 **Estimasi:** 4 person-days

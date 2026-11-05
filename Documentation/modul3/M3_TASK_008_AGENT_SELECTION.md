@@ -1,6 +1,6 @@
 # Task: Pemilihan Agent per Tahap
 **ID:** M3_TASK_008
-**Status:** Done (4 Nov 2026), kecuali wizard langkah 3 yang menunggu TASK_004. MCP: kapabilitas & validasi ulang di `intel_job_create` (TASK_007). Dashboard: seed `Agent_Analyst`, endpoint agents/stage-defaults (TASK_002), cek tipe sumber vs toolset (`assertSourcesSupported`), badge kapabilitas/route di Settings → AI Agents, default per tahap di Settings → AI & Gateway. Test: `test/unit/intel-agents.spec.ts`, `frontend/src/__tests__/intel.test.ts`
+**Status:** Done (5 Nov 2026) — wizard langkah 3 (`WizardAgentStep`) memakai stage-defaults; diuji E2E-M3-01 (`frontend/e2e/intel.stack.e2e.ts`). MCP: kapabilitas & validasi ulang di `intel_job_create` (TASK_007). Dashboard: seed `Agent_Analyst`, endpoint agents/stage-defaults (TASK_002), cek tipe sumber vs toolset (`assertSourcesSupported`), badge kapabilitas/route di Settings → AI Agents, default per tahap di Settings → AI & Gateway. Test: `test/unit/intel-agents.spec.ts`, `frontend/src/__tests__/intel.test.ts`
 **Repo:** `mcp` + `marketingdashboardjtp`
 **Dependencies:** M3_TASK_007 (`intel_agents_list`), M3_TASK_001 (`intel_stage_defaults`)
 **Estimasi:** 2 person-days

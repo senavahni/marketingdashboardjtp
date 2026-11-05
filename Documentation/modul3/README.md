@@ -100,8 +100,8 @@ Sama dengan [Modul 1 README §5](../modul1/README.md#5-definition-of-done-berlak
 | 000 | ✅ Selesai — kontrak 1.2 + fixture bersama, contract test hijau di Dashboard (Jest) & MCP (pytest) |
 | 007 | ✅ Selesai (repo mcp) — toolset `intel` 8 tool, job `intel_pipeline`, outbox per job, atribusi LLM per agent; migrasi `0003_intel` diterapkan ke DB |
 | 001, 002 | Backend dikerjakan (commit `017b1e1`); migrasi `20261104000000_m3_intel` + seed diterapkan ke DB lokal |
-| 008 | ✅ Selesai kecuali wizard langkah 3 (menunggu TASK_004) |
-| 009 | 🟡 Kode selesai (MCP: key per agent terenkripsi, migrasi `0004_llm_credentials` diterapkan; Dashboard: Settings → AI & Gateway). Sisa: provisioning key di Gateway oleh admin, uji manual, biaya per tahap di detail job (TASK_005), rotasi UI (P1) |
+| 008 | ✅ Selesai — wizard langkah 3 memakai default per tahap, diuji E2E-M3-01 |
+| 009 | 🟡 Kode, provisioning, biaya per tahap di detail job & uji manual `/admin/requests` (`X-Caller-Agent`, `caller_task`) selesai (5 Nov 2026). Sisa: credential MCP `analyst` & `system` masih berisi admin key Gateway → ganti dengan `gateway-keys provision` (lihat TASK_009 §B); harga model gpt-5 di Gateway belum diisi (biaya Gateway $0); rotasi UI (P1) |
 | 003 | ✅ Selesai — rancangan + state & arah visual (§B.8–B.9) |
-| 004, 005 | 🟡 UI selesai (daftar job, wizard 4 langkah, detail + timeline, Sumber & Koneksi, real-time, Ringkasan, Data mentah, ekspor CSV/PDF/XLSX) + Vitest; tutorial ditambah langkah Modul 2 & 3. Sisa: Playwright & uji stack nyata |
+| 004, 005 | ✅ Selesai — UI + Vitest + Playwright stack nyata `frontend/e2e/intel.stack.e2e.ts` (E2E-M3-01..07, sumber Web). Uji 5.000 item X menunggu profil browser X login (TASK_006 §C) |
 | 006, 010 – 012 | Belum dimulai |
