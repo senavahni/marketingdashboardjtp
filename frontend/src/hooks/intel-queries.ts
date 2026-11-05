@@ -12,6 +12,7 @@ import type {
   JobStatus,
   JobUpdatedEvent,
   LlmStatus,
+  McpProfile,
   SelectableStage,
   Sentiment,
   SourcesStatus,
@@ -42,6 +43,7 @@ export interface ItemFilters {
 export const intelKeys = {
   all: ['intel'] as const,
   agents: (ws: string) => ['intel', 'agents', ws] as const,
+  mcpProfiles: (ws: string) => ['intel', 'mcp-profiles', ws] as const,
   stageDefaults: (ws: string) => ['intel', 'stage-defaults', ws] as const,
   llmStatus: (ws: string, days: number) => ['intel', 'llm-status', ws, days] as const,
   sources: (ws: string) => ['intel', 'sources', ws] as const,
@@ -72,6 +74,14 @@ export const useIntelAgents = (ws: string) =>
   useQuery({
     queryKey: intelKeys.agents(ws),
     queryFn: () => api<{ data: IntelAgent[] }>(`/workspaces/${ws}/intel/agents`).then((r) => r.data),
+    retry: false,
+  });
+
+export const useMcpProfiles = (ws: string, enabled: boolean) =>
+  useQuery({
+    queryKey: intelKeys.mcpProfiles(ws),
+    queryFn: () => api<{ data: McpProfile[] }>(`/workspaces/${ws}/intel/mcp-profiles`).then((r) => r.data),
+    enabled,
     retry: false,
   });
 

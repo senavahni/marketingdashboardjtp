@@ -42,6 +42,8 @@ Menjalankan ketiganya: `D:\Data.Fahrul\Documents\PortableDev\projects\start-proj
 | [M3_TASK_010](M3_TASK_010_KNOWLEDGE_BASE.md) | Simpan hasil ke Knowledge Base (P1) | mcp + dashboard |
 | [M3_TASK_011](M3_TASK_011_3D_VISUALIZATION.md) | Visualisasi 3D live (P2) | mcp + dashboard |
 | [M3_TASK_012](M3_TASK_012_META_COLLECTOR.md) | Collector Meta (P2, di luar scope rilis pertama) | mcp |
+| [M3_TASK_013](M3_TASK_013_AGENT_PLANNER.md) | Agent Planner: job riset → jadwal otomatis di Penjadwalan (P1) | mcp + dashboard |
+| [M3_TASK_014](M3_TASK_014_AGENT_MISSION.md) | Misi Agent: perintah langsung → rencana → eksekusi agentic (P1, Fase A/B) | dashboard + mcp |
 
 ### 4. Urutan Pengerjaan & Dependensi
 
@@ -59,6 +61,8 @@ flowchart LR
   T005 --> T006[006 QA]
   T007 --> T010[010 KB] --> T011[011 3D]
   T007 -.opsional.-> T012[012 Meta]
+  T005 --> T013[013 Planner]
+  T013 --> T014[014 Misi Agent]
 ```
 
 **Pekerjaan di repo `mcp` (007, bagian MCP dari 008/009) harus selesai lebih dulu** — tanpa toolset `intel`, Dashboard tidak punya tool yang boleh dipanggil (key Dashboard saat ini hanya toolset `pm`).
@@ -71,6 +75,7 @@ flowchart LR
 | 4. Dashboard frontend | 003, 004, 005 | 8 pd |
 | 5. QA | 006 | 3 pd |
 | Lanjutan | 010 (P1), 011 & 012 (P2) | 3 + 6 + 5 pd |
+| Agent → Penjadwalan | 013 (P1), 014 Fase A & B (P1) | 6 + 3 + 5 pd |
 
 ### 5. Definition of Done
 Sama dengan [Modul 1 README §5](../modul1/README.md#5-definition-of-done-berlaku-untuk-semua-task), ditambah:
@@ -100,10 +105,11 @@ Sama dengan [Modul 1 README §5](../modul1/README.md#5-definition-of-done-berlak
 | 000 | ✅ Selesai — kontrak 1.2 + fixture bersama, contract test hijau di Dashboard (Jest) & MCP (pytest) |
 | 007 | ✅ Selesai (repo mcp) — toolset `intel` 8 tool, job `intel_pipeline`, outbox per job, atribusi LLM per agent; migrasi `0003_intel` diterapkan ke DB |
 | 001, 002 | Backend dikerjakan (commit `017b1e1`); migrasi `20261104000000_m3_intel` + seed diterapkan ke DB lokal |
-| 008 | ✅ Selesai — wizard langkah 3 memakai default per tahap, diuji E2E-M3-01 |
+| 008 | ✅ Selesai — wizard langkah 3 memakai default per tahap, diuji E2E-M3-01. Tambahan 5 Nov 2026: autocomplete "MCP agent key" dari profil MCP (`GET /workspaces/:ws/intel/mcp-profiles`) & tombol **Tambah agent default** (`POST /workspaces/:ws/intel/agents/bootstrap`: researcher/analyst/strategist + default tahap yang kosong) |
 | 009 | 🟡 Kode, provisioning, biaya per tahap di detail job & uji manual `/admin/requests` (`X-Caller-Agent`, `caller_task`) selesai (5 Nov 2026). Credential `analyst`/`system` sudah key project `marketing-mcp`, harga model & biaya aktual provider di konsol Gateway. Sisa: `ANTHROPIC_ADMIN_KEY` (opsional), rotasi UI (P1) |
 | 003 | ✅ Selesai — rancangan + state & arah visual (§B.8–B.9) |
 | 004, 005 | ✅ Selesai — UI + Vitest + Playwright stack nyata `frontend/e2e/intel.stack.e2e.ts` (E2E-M3-01..07, sumber Web). Uji 5.000 item X menunggu profil browser X login (TASK_006 §C) |
 | 010 | ✅ Selesai — tahap Indeks ke KB `intel:<workspace_id>`, purge saat hapus job, wizard toggle + badge; diuji MCP (integrasi), Jest, Vitest, Playwright E2E-M3-08 |
 | 011 | ✅ Selesai — proyeksi PCA `intel_kb_projection`, `sample_tokens` real-time, tombol Tampilan 3D (lazy, fallback 2D). Sisa: ukur fps/memori di iGPU target |
 | 006, 012 | Belum dimulai |
+| 013, 014 | Dokumen disusun (5 Nov 2026); implementasi belum dimulai. Fondasi Modul 2 dipakai ulang: `mcp-api` (tulis task), toolset `task`, runtime agent + budget |

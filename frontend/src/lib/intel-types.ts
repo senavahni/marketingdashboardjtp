@@ -47,7 +47,16 @@ export type IntelAgent = {
   reason?: 'UNKNOWN_AGENT' | 'AGENT_INACTIVE';
 };
 
-export type StageDefaults = Partial<Record<SelectableStage, { id: string; name: string; mcp_agent_key: string }>>;
+/** Profil agent di MCP (sumber autocomplete "MCP agent key"). */
+export type McpProfile = {
+  agent_key: string;
+  display_name: string;
+  is_active: boolean;
+  capabilities: Capability[];
+  used_by: { id: string; name: string } | null;
+};
+
+export type StageDefaults =Partial<Record<SelectableStage, { id: string; name: string; mcp_agent_key: string }>>;
 
 export type LlmAgentStatus = {
   agent_key: string;

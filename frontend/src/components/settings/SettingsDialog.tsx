@@ -2,10 +2,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Bot, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useIntelAgents } from '../../hooks/intel-queries';
+import { intelKeys, useIntelAgents, useMcpProfiles } from '../../hooks/intel-queries';
 import { useAgents, useMembers } from '../../hooks/queries';
 import { api, errorMessage } from '../../lib/api';
 import { useAuth } from '../../lib/auth-store';
+import { applyMcpProfile, mcpProfileHint } from '../../lib/intel-format';
 import { qk } from '../../lib/query-client';
 import type { Agent, Role } from '../../lib/types';
 import { cn } from '../../lib/utils';
@@ -125,7 +126,31 @@ function Agents({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boolea
   const { data: intelAgents } = useIntelAgents(workspaceId);
   const intelById = new Map(intelAgents?.map((a) => [a.id, a]));
   const [form, setForm] = useState<Partial<Agent> | null>(null);
-  const refresh = () => qc.invalidateQueries({ queryKey: qk.agents(workspaceId) });
+  const [bootstrapping, setBootstrapping] = useState(false);
+  const { data: profiles } = useMcpProfiles(workspaceId, isAdmin && form !== null);
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: qk.agents(workspaceId) });
+    void qc.invalidateQueries({ queryKey: intelKeys.agents(workspaceId) });
+    void qc.invalidateQueries({ queryKey: intelKeys.mcpProfiles(workspaceId) });
+  };
+  const changeField = (key: 'name' | 'handle' | 'mcp_agent_key' | 'description', value: string) => {
+    if (!form) return;
+    const profile = key === 'mcp_agent_key' ? profiles?.find((p) => p.agent_key === value) : undefined;
+    setForm(profile ? applyMcpProfile(form, profile) : { ...form, [key]: value });
+  };
+  const bootstrap = async () => {
+    setBootstrapping(true);
+    try {
+      const res = await api<{ created: string[]; defaults: string[] }>(`/workspaces/${workspaceId}/intel/agents/bootstrap`, { method: 'POST' });
+      toast.success(res.created.length ? `Ditambahkan: ${res.created.join(', ')}` : 'Agent default sudah ada');
+      refresh();
+      void qc.invalidateQueries({ queryKey: intelKeys.stageDefaults(workspaceId) });
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      setBootstrapping(false);
+    }
+  };
   const save = async () => {
     if (!form) return;
     const body = { name: form.name, handle: form.handle, mcp_agent_key: form.mcp_agent_key, description: form.description || null };
@@ -194,11 +219,18 @@ function Agents({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boolea
               <input
                 key={k}
                 value={(form[k] as string) ?? ''}
-                onChange={(e) => setForm({ ...form, [k]: e.target.value })}
-                placeholder={ph}
+                onChange={(e) => changeField(k, e.target.value)}
+                placeholder={k === 'mcp_agent_key' && profiles?.length ? 'MCP agent key — ketik untuk memilih agent aktif di MCP' : ph}
+                list={k === 'mcp_agent_key' ? 'mcp-agent-profiles' : undefined}
+                autoComplete="off"
                 className="w-full rounded-md border border-line-strong px-2.5 py-1.5 text-[13px] outline-none focus:border-accent"
               />
             ))}
+            <datalist id="mcp-agent-profiles">
+              {profiles?.map((p) => (
+                <option key={p.agent_key} value={p.agent_key} label={`${p.display_name} — ${mcpProfileHint(p)}`} />
+              ))}
+            </datalist>
             <div className="flex justify-end gap-2">
               <Button onClick={() => setForm(null)}>Batal</Button>
               <Button variant="primary" onClick={() => void save()}>
@@ -207,9 +239,14 @@ function Agents({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boolea
             </div>
           </div>
         ) : (
-          <Button className="mt-3" onClick={() => setForm({})}>
-            <Plus size={14} /> Tambah agent
-          </Button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button onClick={() => setForm({})}>
+              <Plus size={14} /> Tambah agent
+            </Button>
+            <Button onClick={() => void bootstrap()} disabled={bootstrapping} title="Buat Agent_Researcher, Agent_Analyst & Agent_Strategist dari MCP lalu jadikan default tiap tahap riset">
+              <Bot size={14} /> {bootstrapping ? 'Menambahkan…' : 'Tambah agent default'}
+            </Button>
+          </div>
         ))}
     </div>
   );

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { hasRole } from '../../common/constants/domain';
 import { ErrorCode } from '../../common/constants/error-codes';
 import { AppException, Errors } from '../../common/exceptions/app.exception';
-import { AuthUser } from '../../common/types/request.types';
+import { AuthUser, userActor } from '../../common/types/request.types';
 import { AppConfigService } from '../../config/app-config.service';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, intel_job_status } from '../../generated/prisma/client';
@@ -27,6 +27,7 @@ import {
   sourcesStatusSchema,
 } from '../../shared/schemas/intel.schema';
 import { decodeCursor, toPage } from '../../utils/helpers/pagination.util';
+import { ActivityService } from '../activity/activity.service';
 import { AccessService } from '../core/access.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { IntelMcpClient } from './intel-mcp-client.service';
@@ -46,6 +47,18 @@ const EVENTS_LIMIT = 500;
 const ACTIVE_STATUSES: intel_job_status[] = ['queued', 'collecting', 'analyzing', 'indexing', 'cancelling'];
 type AgentStage = 'collect' | 'analyze' | 'index';
 const AGENT_STAGES: AgentStage[] = ['collect', 'analyze', 'index'];
+/** Agent standar untuk tombol "Tambah agent default" — sama dengan seed workspace Demo. */
+const DEFAULT_AGENTS: { key: string; name: string; description: string; stage: AgentStage }[] = [
+  { key: 'researcher', name: 'Agent_Researcher', description: 'Riset pasar & kompetitor', stage: 'collect' },
+  { key: 'analyst', name: 'Agent_Analyst', description: 'Menganalisis sentimen & tren', stage: 'analyze' },
+  { key: 'strategist', name: 'Agent_Strategist', description: 'Menyusun strategi & kalender konten', stage: 'index' },
+];
+
+function uniqueHandle(base: string, taken: Set<string>): string {
+  let handle = base;
+  for (let n = 2; taken.has(handle.toLowerCase()); n++) handle = `${base}_${n}`;
+  return handle;
+}
 
 type JobInput = ReturnType<typeof intelJobInputSchema.parse>;
 
@@ -60,7 +73,67 @@ export class IntelService {
     private readonly redis: RedisService,
     private readonly mcp: IntelMcpClient,
     private readonly notifications: NotificationsService,
+    private readonly activity: ActivityService,
   ) {}
+
+  /** Profil agent di MCP untuk autocomplete form agent; `used_by` = agent workspace yang sudah memakai key tsb. */
+  async mcpProfiles(user: AuthUser, workspaceId: string, requestId?: string) {
+    this.assertEnabled();
+    await this.access.assertWorkspace(user.id, workspaceId);
+    const profiles = await this.cachedMcp('intel:agents', false, () => this.mcp.call('intel_agents_list', {}, agentsListSchema, requestId));
+    const local = await this.prisma.agents.findMany({
+      where: { workspace_id: workspaceId, deleted_at: null },
+      select: { id: true, name: true, mcp_agent_key: true },
+    });
+    const byKey = new Map(local.map((agent) => [agent.mcp_agent_key, { id: agent.id, name: agent.name }]));
+    return {
+      data: profiles.agents.map((p) => ({
+        agent_key: p.agent_key,
+        display_name: p.display_name,
+        is_active: p.is_active,
+        capabilities: p.capabilities,
+        used_by: byKey.get(p.agent_key) ?? null,
+      })),
+    };
+  }
+
+  /** Buat agent standar yang belum ada (profil MCP aktif) dan isi default tahap yang masih kosong. */
+  async bootstrapAgents(user: AuthUser, workspaceId: string, requestId?: string) {
+    this.assertEnabled();
+    await this.access.assertWorkspace(user.id, workspaceId, 'admin');
+    const profiles = await this.cachedMcp('intel:agents', false, () => this.mcp.call('intel_agents_list', {}, agentsListSchema, requestId));
+    const activeProfiles = new Map(profiles.agents.filter((p) => p.is_active).map((p) => [p.agent_key, p]));
+    const existing = await this.prisma.agents.findMany({
+      where: { workspace_id: workspaceId, deleted_at: null },
+      select: { id: true, name: true, handle: true, mcp_agent_key: true, is_active: true },
+    });
+    const filledStages = new Set(
+      (await this.prisma.intel_stage_defaults.findMany({ where: { workspace_id: workspaceId }, select: { stage: true } })).map((d) => d.stage),
+    );
+    const handles = new Set(existing.map((a) => a.handle.toLowerCase()));
+    const created: string[] = [];
+    const defaults: AgentStage[] = [];
+    await this.prisma.tx(async (tx) => {
+      for (const def of DEFAULT_AGENTS) {
+        const profile = activeProfiles.get(def.key);
+        if (!profile) continue;
+        let agent = existing.find((a) => a.mcp_agent_key === def.key);
+        if (!agent) {
+          const handle = uniqueHandle(def.name, handles);
+          handles.add(handle.toLowerCase());
+          agent = await tx.agents.create({
+            data: { workspace_id: workspaceId, name: def.name, handle, mcp_agent_key: def.key, description: def.description, created_by: user.id },
+          });
+          await this.activity.log(tx, { workspaceId, entityType: 'agent', entityId: agent.id, action: 'agent.created', actor: userActor(user), metadata: { agent_id: agent.id, bootstrap: true } });
+          created.push(def.name);
+        }
+        if (!agent.is_active || filledStages.has(def.stage) || !profile.capabilities.includes(def.stage)) continue;
+        await tx.intel_stage_defaults.create({ data: { workspace_id: workspaceId, stage: def.stage, agent_id: agent.id, updated_by: user.id } });
+        defaults.push(def.stage);
+      }
+    });
+    return { created, defaults };
+  }
 
   async agents(user: AuthUser, workspaceId: string, refresh: boolean, requestId?: string) {
     this.assertEnabled();

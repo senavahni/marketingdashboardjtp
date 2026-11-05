@@ -40,8 +40,9 @@ function harness(mcpResult: unknown = { agents: PROFILES }) {
   const redis = { client: { get: jest.fn().mockResolvedValue(null), set: jest.fn().mockResolvedValue('OK') } };
   const mcp = { call: jest.fn().mockResolvedValue(mcpResult) };
   const config = { isIntelEnabled: true };
-  const service = new IntelService(config as never, prisma as never, access as never, redis as never, mcp as never, {} as never);
-  return { service, prisma, access, mcp, tx, config };
+  const activity = { log: jest.fn().mockResolvedValue(undefined) };
+  const service = new IntelService(config as never, prisma as never, access as never, redis as never, mcp as never, {} as never, activity as never);
+  return { service, prisma, access, mcp, tx, config, activity };
 }
 
 async function errorCode(promise: Promise<unknown>): Promise<string | undefined> {
@@ -99,6 +100,66 @@ describe('IntelService.updateStageDefaults', () => {
     const { service, tx } = harness();
     expect(await errorCode(service.updateStageDefaults(user, ws, input))).toBe(code);
     expect(tx.intel_stage_defaults.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('IntelService.mcpProfiles (autocomplete MCP agent key)', () => {
+  it('mengembalikan profil MCP + agent workspace yang sudah memakainya', async () => {
+    const { service, prisma } = harness();
+    prisma.agents.findMany.mockResolvedValue([{ id: ids.researcher, name: 'Agent_Researcher', mcp_agent_key: 'researcher' }]);
+    const { data } = await service.mcpProfiles(user, ws);
+    expect(data.map((p) => p.agent_key)).toEqual(['researcher', 'analyst', 'strategist', 'social_only']);
+    expect(data[0]).toEqual({ agent_key: 'researcher', display_name: 'researcher', is_active: true, capabilities: ['collect', 'analyze', 'index'], used_by: { id: ids.researcher, name: 'Agent_Researcher' } });
+    expect(data[1].used_by).toBeNull();
+    expect(JSON.stringify(data)).not.toContain('lgw_');
+  });
+});
+
+describe('IntelService.bootstrapAgents (Tambah agent default)', () => {
+  function bootstrapHarness(existing: unknown[], defaults: { stage: string }[] = []) {
+    const h = harness();
+    let seq = 0;
+    const tx = {
+      agents: { create: jest.fn(({ data }: { data: Record<string, unknown> }) => Promise.resolve({ id: `new-${++seq}`, is_active: true, ...data })) },
+      intel_stage_defaults: { create: jest.fn().mockResolvedValue(undefined) },
+    };
+    h.prisma.agents.findMany.mockResolvedValue(existing);
+    h.prisma.intel_stage_defaults.findMany.mockResolvedValue(defaults);
+    h.prisma.tx.mockImplementation(((cb: (t: typeof tx) => Promise<unknown>) => cb(tx)) as never);
+    return { ...h, tx };
+  }
+
+  it('workspace kosong → buat researcher/analyst/strategist + default collect/analyze/index (admin)', async () => {
+    const { service, access, tx, activity } = bootstrapHarness([]);
+    const res = await service.bootstrapAgents(user, ws);
+    expect(access.assertWorkspace).toHaveBeenCalledWith(expect.anything(), ws, 'admin');
+    expect(tx.agents.create.mock.calls.map(([a]) => a.data.mcp_agent_key)).toEqual(['researcher', 'analyst', 'strategist']);
+    expect(tx.agents.create.mock.calls[0][0].data).toMatchObject({ workspace_id: ws, name: 'Agent_Researcher', handle: 'Agent_Researcher' });
+    expect(tx.intel_stage_defaults.create.mock.calls.map(([a]) => a.data.stage)).toEqual(['collect', 'analyze', 'index']);
+    expect(activity.log).toHaveBeenCalledTimes(3);
+    expect(res).toEqual({ created: ['Agent_Researcher', 'Agent_Analyst', 'Agent_Strategist'], defaults: ['collect', 'analyze', 'index'] });
+  });
+
+  it('agent dengan key yang sama dipakai ulang; default yang sudah ada tidak ditimpa; handle bentrok diberi akhiran', async () => {
+    const existing = [
+      { id: 'a1', name: 'Peneliti', handle: 'Peneliti', mcp_agent_key: 'researcher', is_active: true },
+      { id: 'a2', name: 'Lain', handle: 'agent_analyst', mcp_agent_key: 'other', is_active: true },
+    ];
+    const { service, tx } = bootstrapHarness(existing, [{ stage: 'analyze' }]);
+    const res = await service.bootstrapAgents(user, ws);
+    expect(tx.agents.create.mock.calls.map(([a]) => a.data.handle)).toEqual(['Agent_Analyst_2', 'Agent_Strategist']);
+    expect(tx.intel_stage_defaults.create.mock.calls.map(([a]) => a.data)).toEqual([
+      expect.objectContaining({ stage: 'collect', agent_id: 'a1' }),
+      expect.objectContaining({ stage: 'index' }),
+    ]);
+    expect(res.defaults).toEqual(['collect', 'index']);
+  });
+
+  it('profil yang tidak ada / nonaktif di MCP dilewati', async () => {
+    const h = bootstrapHarness([]);
+    h.mcp.call.mockResolvedValue({ agents: [profile('researcher', ['collect'], ['web']), profile('analyst', ['analyze'], ['analysis'], { is_active: false })] });
+    const res = await h.service.bootstrapAgents(user, ws);
+    expect(res).toEqual({ created: ['Agent_Researcher'], defaults: ['collect'] });
   });
 });
 

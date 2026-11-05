@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildIntelReportModel } from '../lib/intel-export/report-model';
 import {
   applyJobUpdate,
+  applyMcpProfile,
   buildInsightView,
   canCancel,
   canRetry,
@@ -9,6 +10,7 @@ import {
   formatNet,
   formatUsd,
   kbChunks,
+  mcpProfileHint,
 } from '../lib/intel-format';
 import { capableFor, type Insight, type IntelAgent, type IntelJob } from '../lib/intel-types';
 import {
@@ -160,6 +162,21 @@ describe('pemilihan agent (M3_TASK_008)', () => {
     ).toBe('analyst');
     expect(defaultAgentId(AGENTS, 'collect', ['web'])).toBe('researcher');
     expect(defaultAgentId([AGENTS[2]], 'collect', ['x'])).toBe('');
+  });
+});
+
+describe('autocomplete MCP agent key', () => {
+  const p = { agent_key: 'researcher', display_name: 'Researcher', is_active: true, capabilities: ['collect', 'analyze'] as IntelAgent['capabilities'], used_by: null };
+
+  it('mengisi nama & handle hanya bila masih kosong', () => {
+    expect(applyMcpProfile({}, p)).toEqual({ mcp_agent_key: 'researcher', name: 'Agent_Researcher', handle: 'Agent_Researcher' });
+    expect(applyMcpProfile({ name: 'Peneliti', handle: 'peneliti' }, p)).toEqual({ mcp_agent_key: 'researcher', name: 'Peneliti', handle: 'peneliti' });
+  });
+
+  it('hint menyebut kapabilitas, status nonaktif, dan agent yang sudah memakainya', () => {
+    expect(mcpProfileHint(p)).toBe('Kumpulkan, Analisis');
+    expect(mcpProfileHint({ ...p, is_active: false, used_by: { id: 'a1', name: 'Agent_X' } })).toBe('Kumpulkan, Analisis · nonaktif di MCP · dipakai Agent_X');
+    expect(mcpProfileHint({ ...p, capabilities: [] })).toBe('tanpa kapabilitas riset');
   });
 });
 

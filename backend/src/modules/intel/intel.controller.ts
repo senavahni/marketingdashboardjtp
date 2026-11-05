@@ -39,6 +39,17 @@ export class IntelController {
     return this.intel.agents(user, workspaceId, refresh, requestId);
   }
 
+  @Get('workspaces/:ws/intel/mcp-profiles')
+  mcpProfiles(@CurrentUser() user: AuthUser, @Param('ws', UuidPipe) workspaceId: string, @Headers('x-request-id') requestId?: string) {
+    return this.intel.mcpProfiles(user, workspaceId, requestId);
+  }
+
+  @Post('workspaces/:ws/intel/agents/bootstrap')
+  @HttpCode(200)
+  bootstrapAgents(@CurrentUser() user: AuthUser, @Param('ws', UuidPipe) workspaceId: string, @Headers('x-request-id') requestId?: string) {
+    return this.intel.bootstrapAgents(user, workspaceId, requestId);
+  }
+
   @Get('workspaces/:ws/intel/stage-defaults')
   stageDefaults(@CurrentUser() user: AuthUser, @Param('ws', UuidPipe) workspaceId: string) {
     return this.intel.stageDefaults(user, workspaceId);

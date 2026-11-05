@@ -3,7 +3,22 @@
  * Fungsi di sini murni (tanpa React) agar bisa diuji Vitest dan dipakai ulang oleh exporter.
  */
 import type { FlowEvent } from '../components/intel/viz3d/types';
-import type { Insight, IntelJob, JobStatus, JobUpdatedEvent, Sentiment, SourceType, StageStatus, Table } from './intel-types';
+import { CAPABILITY_LABEL } from './intel-types';
+import type { Insight, IntelJob, JobStatus, JobUpdatedEvent, McpProfile, Sentiment, SourceType, StageStatus, Table } from './intel-types';
+
+type AgentFormFields = { name?: string; handle?: string; mcp_agent_key?: string };
+
+/** Pilih profil MCP di form agent: key diisi, nama & handle ikut terisi bila masih kosong. */
+export function applyMcpProfile<T extends AgentFormFields>(form: T, profile: McpProfile): T {
+  const suggested = `Agent_${profile.agent_key.charAt(0).toUpperCase()}${profile.agent_key.slice(1)}`.replace(/[^A-Za-z0-9_]/g, '_').slice(0, 32);
+  return { ...form, mcp_agent_key: profile.agent_key, name: form.name || suggested, handle: form.handle || suggested };
+}
+
+/** Keterangan singkat profil MCP untuk daftar saran. */
+export function mcpProfileHint(profile: McpProfile): string {
+  const caps = profile.capabilities.map((c) => CAPABILITY_LABEL[c]).join(', ') || 'tanpa kapabilitas riset';
+  return [caps, !profile.is_active && 'nonaktif di MCP', profile.used_by && `dipakai ${profile.used_by.name}`].filter(Boolean).join(' · ');
+}
 
 export const INTEL_COLORS = {
   ink: '#0F2340',
