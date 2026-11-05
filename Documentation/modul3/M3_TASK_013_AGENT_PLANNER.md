@@ -1,6 +1,40 @@
 # Task: Agent Planner — Hasil Riset Otomatis Jadi Jadwal (P1)
 **ID:** M3_TASK_013
-**Status:** Belum dimulai (dokumen disusun 5 Nov 2026)
+**Status:** Done (5 Nov 2026).
+
+**Implementasi**
+- **MCP:** `services/intel/mission_plan.py` + tool `intel_mission_plan` (toolset `intel`), prompt `mission_plan.v1`, purpose LLM `mission_plan` (smart, 8.000 token, `reasoning_effort=low`), atribusi `X-Caller-Task: mission:<id>`.
+- **Dashboard backend:** tabel `agent_missions` (migrasi `20261105000000_m3_missions`), `MissionService`, endpoint misi, sinkron di `IntelEventService`, pemulihan di sweeper Intel.
+- **Frontend:** kartu **Masukkan ke Penjadwalan** di langkah **Agent** wizard, kartu **Jadwal** + panel tinjauan di detail job.
+
+**Test**
+- **MCP:** `test_mission_plan.py`, integrasi `test_mission_plan_*`.
+- **Jest:** `mission.service.spec.ts`, `intel-event.service.spec.ts`, `intel-agents.spec.ts`.
+- **Vitest:** `draftToSchedule`, `planCounts`.
+- **Playwright stack nyata:** E2E-M3-09 (8/8 suite lulus).
+- **Uji manual stack nyata:** mode review → approve. Hasilnya 11 task + 22 subtask, biaya planning ±$0,035, sekitar 90 detik setelah job selesai.
+
+**Perubahan desain saat implementasi**
+1. `mission_plan` dipanggil **sinkron** (timeout 200 s) di latar belakang Dashboard setelah `intel.job.completed`, bukan job async + event `mission.plan.*`.
+   - Akibatnya tabel `mission_events` dan event kontrak baru tidak diperlukan.
+   - Planning yang macet dipulihkan sweeper setiap 2 menit (`recoverStale`).
+2. Tool masuk toolset `intel` (key Dashboard yang sama), bukan toolset baru `planner`.
+3. Status misi menambah `waiting_research`.
+4. Keanggotaan task:
+   - Subtask tahap ditandai tag `tahap:<stage>`.
+   - Task rencana ditandai tag `misi` + `eksekutor:agent|human`; tag eksekutor dipakai TASK_014 Fase B.
+   - Task rencana belum di-assign agar tidak memicu run Modul 2.
+5. Risiko `TIMELINE_TIGHT` otomatis hanya bila task mulai **sebelum** dependensinya selesai. Serah terima di hari yang sama dianggap wajar.
+
+**Review 5 Nov 2026**
+6. **Project milik AI:** default wizard **🤖 Project baru (dibuat AI)**.
+   - Tanpa `schedule.project_id`, project `Riset: <judul>` dibuat oleh agent planner (`created_by` kosong, activity log beraktor agent).
+   - Anggota tetap bisa mengedit. Project yang sudah ada tetap bisa dipilih.
+   - Mode Ulangi tidak mengaktifkan penjadwalan.
+7. **Misi gagal bisa diulang:** `POST /missions/:id/retry` (tombol **Coba lagi**), hanya bila job riset sudah selesai.
+8. **Error MCP lebih jelas:**
+   - `BUDGET_EXCEEDED` → `LLM_QUOTA_EXCEEDED` ("Kuota LLM Gateway habis…").
+   - `UPSTREAM_*` → `LLM_ERROR`, tanpa membuka detail upstream.
 **Repo:** `mcp` + `marketingdashboardjtp`
 **Dependencies:** M3_TASK_007 (pipeline `intel`), M3_TASK_008 (agent per tahap), Modul 2 (`mcp-api` Service API, toolset `task`, runtime agent)
 **Estimasi:** 6 person-days

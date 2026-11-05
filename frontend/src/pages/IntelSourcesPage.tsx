@@ -1,6 +1,7 @@
 import { ArrowLeft, Cpu, PlugZap, RefreshCw, ShieldAlert } from 'lucide-react';
 import { Link, useOutletContext } from 'react-router';
 import { toast } from 'sonner';
+import { BrowserProfilesSection } from '../components/intel/BrowserProfilesSection';
 import { Card, IntelHeader } from '../components/intel/IntelUi';
 import { Button } from '../components/ui/button';
 import { EmptyState, Spinner } from '../components/ui/misc';
@@ -128,6 +129,7 @@ export function IntelSourcesPage() {
             <p className="mt-4 text-[12px] text-ink-faint">
               Terakhir diperiksa {timeAgo(data.checked_at)}. Key LLM per agent dikelola di <b>Pengaturan → AI & Gateway</b>.
             </p>
+            {isAdmin && <BrowserProfilesSection workspaceId={workspace.id} />}
           </>
         )}
       </div>

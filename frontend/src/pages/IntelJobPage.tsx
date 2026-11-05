@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { InsightSummary } from '../components/intel/InsightSummary';
 import { Card, JobStatusBadge, SourceChips } from '../components/intel/IntelUi';
 import { JobWizard } from '../components/intel/JobWizard';
+import { MissionCard } from '../components/intel/MissionCard';
 import { RawDataTab } from '../components/intel/RawDataTab';
 import { StageTimeline } from '../components/intel/StageTimeline';
 import { Button } from '../components/ui/button';
@@ -172,6 +173,10 @@ export function IntelJobPage() {
             )}
           </div>
         </Card>
+
+        <div className="mb-6 empty:hidden">
+          <MissionCard jobId={job.id} canEdit={workspace.role !== 'viewer'} />
+        </div>
 
         <div role="tablist" aria-label="Bagian job" className="mb-4 flex gap-1 border-b border-line" data-tour="intel-tabs">
           {TABS.map((t) => (

@@ -113,6 +113,69 @@ export type JobInput = {
   agents: { collect: string; analyze: string; index?: string };
 };
 
+/** "Masukkan ke Penjadwalan" (M3_TASK_013) — hanya untuk create, tidak ikut estimasi. */
+export type ScheduleInput = { project_id?: string; period: { start_date: string; end_date: string }; approval_mode: 'auto' | 'review' };
+
+// ---------------------------------------------------------------------------- misi (M3_TASK_013)
+
+export type MissionStatus =
+  | 'waiting_research'
+  | 'planning'
+  | 'awaiting_review'
+  | 'scheduled'
+  | 'running'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export type PlanItem = {
+  ref: string;
+  title: string;
+  description: string;
+  start_date: string;
+  end_date: string;
+  priority: 'none' | 'low' | 'medium' | 'high' | 'urgent';
+  tags: string[];
+  executor: 'agent' | 'human';
+  agent_key?: string | null;
+  depends_on: string[];
+};
+export type PlanTask = PlanItem & { subtasks: PlanItem[] };
+export type MissionPlan = { summary: string; assumptions: string[]; risks: { code: string; message: string }[]; tasks: PlanTask[] };
+
+export type Mission = {
+  id: string;
+  workspace_id: string;
+  project_id: string;
+  source: 'intel_job' | 'manual';
+  intel_job_id: string | null;
+  title: string;
+  start_date: string;
+  end_date: string;
+  approval_mode: 'auto' | 'review';
+  status: MissionStatus;
+  plan: MissionPlan | null;
+  plan_revision: number;
+  revisions_left: number;
+  root_task_id: string | null;
+  cost_usd: number;
+  error: { code: string; message: string } | null;
+  agent: { id: string; name: string; mcp_agent_key: string };
+};
+
+export const MISSION_STATUS_LABEL: Record<MissionStatus, string> = {
+  waiting_research: 'Menunggu riset selesai',
+  planning: 'Agent menyusun rencana…',
+  awaiting_review: 'Menunggu tinjauan',
+  scheduled: 'Terjadwal di Penjadwalan',
+  running: 'Berjalan',
+  paused: 'Dijeda',
+  completed: 'Selesai',
+  failed: 'Gagal',
+  cancelled: 'Dibatalkan',
+};
+
 // ---------------------------------------------------------------------------- hasil
 
 export type Table = { cols: string[]; rows: unknown[][] };

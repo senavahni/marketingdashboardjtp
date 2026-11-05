@@ -18,7 +18,13 @@ export type IntelToolName =
   | 'intel_job_purge_index'
   | 'intel_kb_projection'
   | 'intel_items'
-  | 'intel_llm_status';
+  | 'intel_llm_status'
+  | 'intel_mission_plan'
+  | 'intel_browser_profiles'
+  | 'intel_browser_profile_create'
+  | 'intel_browser_login_start'
+  | 'intel_browser_login_get'
+  | 'intel_browser_login_cancel';
 
 const TOOL_TIMEOUT_MS = 15_000;
 
@@ -28,7 +34,13 @@ export class IntelMcpClient {
 
   constructor(private readonly config: AppConfigService) {}
 
-  async call<T>(tool: IntelToolName, args: Record<string, unknown>, schema: ZodType<T>, requestId?: string): Promise<T> {
+  async call<T>(
+    tool: IntelToolName,
+    args: Record<string, unknown>,
+    schema: ZodType<T>,
+    requestId?: string,
+    timeoutMs = TOOL_TIMEOUT_MS,
+  ): Promise<T> {
     const apiKey = this.config.env.MCP_INTEL_API_KEY;
     if (!apiKey) {
       throw new AppException('FEATURE_DISABLED', 'Modul Intel belum diaktifkan', 503);
@@ -43,7 +55,7 @@ export class IntelMcpClient {
     const started = Date.now();
     try {
       await client.connect(transport, { timeout: TOOL_TIMEOUT_MS });
-      const response = await client.callTool({ name: tool, arguments: args }, undefined, { timeout: TOOL_TIMEOUT_MS });
+      const response = await client.callTool({ name: tool, arguments: args }, undefined, { timeout: timeoutMs });
       const result = response.structuredContent ?? this.parseTextContent(response.content);
       if (response.isError) {
         const error = result as { code?: unknown; message?: unknown; retryable?: unknown } | undefined;

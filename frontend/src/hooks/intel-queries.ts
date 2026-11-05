@@ -13,12 +13,16 @@ import type {
   JobUpdatedEvent,
   LlmStatus,
   McpProfile,
+  Mission,
+  MissionStatus,
+  ScheduleInput,
   SelectableStage,
   Sentiment,
   SourcesStatus,
   SourceType,
   StageDefaults,
 } from '../lib/intel-types';
+import { qk } from '../lib/query-client';
 import { getSocket, useRealtimeRoom } from '../lib/realtime';
 import type { ProjectionPoint } from '../components/intel/viz3d/types';
 import type { Page } from '../lib/types';
@@ -55,6 +59,7 @@ export const intelKeys = {
   estimate: (ws: string, input: JobInput | null) => ['intel', 'estimate', ws, input] as const,
   projection: (id: string, status: JobStatus) => ['intel', 'projection', id, status] as const,
   flowTokens: (id: string) => ['intel', 'flow-tokens', id] as const,
+  mission: (jobId: string) => ['intel', 'mission', jobId] as const,
 };
 
 /** Modul Intel nonaktif (MCP_INTEL_API_KEY kosong) → 503 FEATURE_DISABLED; UI cukup menyembunyikan fiturnya. */
@@ -136,6 +141,27 @@ export const useIntelJobs = (ws: string, filters: JobFilters) =>
 export const useIntelJob = (id: string | undefined) =>
   useQuery({ queryKey: intelKeys.job(id ?? ''), enabled: !!id, queryFn: () => api<IntelJob>(`/intel/jobs/${id}`), retry: false });
 
+const MISSION_POLL_MS = 5_000;
+const MISSION_BUSY: MissionStatus[] = ['waiting_research', 'planning'];
+
+/** Misi penjadwalan job riset (M3_TASK_013); polling selama agent masih menyusun rencana. */
+export const useJobMission = (jobId: string) =>
+  useQuery({
+    queryKey: intelKeys.mission(jobId),
+    queryFn: () => api<{ data: Mission | null }>(`/intel/jobs/${jobId}/mission`).then((r) => r.data),
+    refetchInterval: (q) => (q.state.data && MISSION_BUSY.includes(q.state.data.status) ? MISSION_POLL_MS : false),
+    retry: false,
+  });
+
+export function useMissionAction(jobId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action, feedback }: { id: string; action: 'approve' | 'revise' | 'cancel' | 'retry'; feedback?: string }) =>
+      api<Mission>(`/missions/${id}/${action}`, { method: 'POST', body: action === 'revise' ? { feedback } : {} }),
+    onSuccess: (mission) => qc.setQueryData(intelKeys.mission(jobId), mission),
+  });
+}
+
 /** Awan titik 3D (M3_TASK_011); kunci memuat status job agar diambil ulang saat job selesai. */
 export const useIntelProjection = (id: string, status: JobStatus, enabled: boolean) =>
   useQuery({
@@ -185,11 +211,13 @@ export function useCreateJob(ws: string) {
   const qc = useQueryClient();
   return useMutation({
     onError: () => undefined, // ditampilkan di wizard
-    mutationFn: (body: JobInput & { confirm_cost: boolean; retry_of_job_id?: string }) =>
+    mutationFn: (body: JobInput & { confirm_cost: boolean; retry_of_job_id?: string; schedule?: ScheduleInput }) =>
       api<IntelJob>(`/workspaces/${ws}/intel/jobs`, { method: 'POST', body }),
-    onSuccess: (job) => {
+    onSuccess: (job, body) => {
       qc.setQueryData(intelKeys.job(job.id), job);
       void qc.invalidateQueries({ queryKey: intelKeys.jobs(ws) });
+      // project baru milik AI (M3_TASK_013) muncul di sidebar
+      if (body.schedule && !body.schedule.project_id) void qc.invalidateQueries({ queryKey: qk.projects(ws) });
     },
   });
 }
@@ -230,6 +258,8 @@ export function useIntelRealtime(ws: string): void {
     const s = getSocket();
     const onUpdate = (ev: JobUpdatedEvent) => {
       if (ev.sample_tokens?.length) qc.setQueryData(intelKeys.flowTokens(ev.id), ev.sample_tokens);
+      // job selesai → misi penjadwalan mulai planning (M3_TASK_013)
+      if (['completed', 'failed', 'cancelled'].includes(ev.status)) void qc.invalidateQueries({ queryKey: intelKeys.mission(ev.id) });
       qc.setQueriesData<InfiniteData<Page<IntelJob>>>({ queryKey: intelKeys.jobs(ws) }, (old) =>
         old ? { ...old, pages: old.pages.map((p) => ({ ...p, data: p.data.map((j) => applyJobUpdate(j, ev)) })) } : old,
       );

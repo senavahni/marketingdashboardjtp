@@ -11,6 +11,8 @@ import {
   formatUsd,
   kbChunks,
   mcpProfileHint,
+  missionTaskHref,
+  planCounts,
 } from '../lib/intel-format';
 import { capableFor, type Insight, type IntelAgent, type IntelJob } from '../lib/intel-types';
 import {
@@ -18,6 +20,7 @@ import {
   defaultAgentId,
   draftFromJob,
   draftToInput,
+  draftToSchedule,
   emptyDraft,
   firstInvalidStep,
   urlError,
@@ -165,6 +168,28 @@ describe('pemilihan agent (M3_TASK_008)', () => {
   });
 });
 
+describe('misi penjadwalan (M3_TASK_013)', () => {
+  const item = (ref: string, executor: 'agent' | 'human') => ({
+    ref,
+    title: ref,
+    description: '',
+    start_date: '2026-11-10',
+    end_date: '2026-11-11',
+    priority: 'medium' as const,
+    tags: [],
+    executor,
+    depends_on: [],
+  });
+
+  it('planCounts & tautan task induk', () => {
+    const plan = { summary: '', assumptions: [], risks: [], tasks: [{ ...item('t1', 'agent'), subtasks: [item('s1', 'human'), item('s2', 'agent')] }, { ...item('t2', 'human'), subtasks: [] }] };
+    expect(planCounts(plan)).toEqual({ tasks: 2, subtasks: 2, byAgent: 2 });
+    expect(planCounts(null)).toEqual({ tasks: 0, subtasks: 0, byAgent: 0 });
+    expect(missionTaskHref('w1', 'p1', 't9')).toBe('/w/w1/p/p1?p=t9');
+    expect(missionTaskHref('w1', 'p1', null)).toBe('/w/w1/p/p1');
+  });
+});
+
 describe('autocomplete MCP agent key', () => {
   const p = { agent_key: 'researcher', display_name: 'Researcher', is_active: true, capabilities: ['collect', 'analyze'] as IntelAgent['capabilities'], used_by: null };
 
@@ -224,6 +249,27 @@ describe('validasi wizard (M3_TASK_004)', () => {
       'agents.collect': 'Pilih agent pengumpul',
       'agents.analyze': 'Pilih agent analis',
     });
+  });
+
+  it('Masukkan ke Penjadwalan (M3_TASK_013): default aktif dengan project baru milik AI; Ulangi nonaktif', () => {
+    const d = validDraft();
+    expect(d.schedule).toMatchObject({ enabled: true, projectId: 'new', mode: 'auto', start: '2026-11-04', end: '2026-11-17' });
+    expect(validateStep(d, 2)).toEqual({});
+    expect(draftToSchedule(d)).toEqual({ period: { start_date: '2026-11-04', end_date: '2026-11-17' }, approval_mode: 'auto' });
+    expect(draftToSchedule({ ...d, schedule: { ...d.schedule, enabled: false } })).toBeUndefined();
+    expect(draftFromJob(job(), TODAY).schedule.enabled).toBe(false);
+  });
+
+  it('Masukkan ke Penjadwalan: project & timeline divalidasi', () => {
+    const on = validDraft();
+    expect(validateStep({ ...on, schedule: { ...on.schedule, projectId: '' } }, 2)['schedule.project']).toBe('Pilih project penjadwalan');
+    const late = { ...on, schedule: { ...on.schedule, projectId: 'p1', start: '2026-11-20', end: '2026-11-10' } };
+    expect(validateStep(late, 2)['schedule.period']).toMatch(/sebelum/);
+    const long = { ...on, schedule: { ...on.schedule, projectId: 'p1', end: '2027-06-01' } };
+    expect(validateStep(long, 2)['schedule.period']).toBe('Timeline maksimal 180 hari');
+    const ok = { ...on, schedule: { ...on.schedule, projectId: 'p1', mode: 'review' as const } };
+    expect(validateStep(ok, 2)).toEqual({});
+    expect(draftToSchedule(ok)).toEqual({ project_id: 'p1', period: { start_date: '2026-11-04', end_date: '2026-11-17' }, approval_mode: 'review' });
   });
 
   it('mode Ulangi mengisi draft dari spec & agent job lama', () => {

@@ -24,6 +24,16 @@ describe('mapIntelMcpError', () => {
     expect(mapped.code).toBe(code === 'INTERNAL' ? 'MCP_ERROR' : code);
   });
 
+  it('kuota Gateway & output LLM tidak valid punya pesan yang bisa ditindaklanjuti (tanpa detail upstream)', () => {
+    const quota = mapIntelMcpError(new McpCallError('BUDGET_EXCEEDED', 'Kuota project di LLM Gateway habis', false));
+    expect(quota.code).toBe('LLM_QUOTA_EXCEEDED');
+    expect(quota.getStatus()).toBe(429);
+    expect(quota.message).toMatch(/Kuota LLM Gateway habis/);
+    const upstream = mapIntelMcpError(new McpCallError('UPSTREAM_ERROR', 'provider detail', true));
+    expect(upstream.code).toBe('LLM_ERROR');
+    expect(upstream.message).not.toContain('provider detail');
+  });
+
   it('maps unknown MCP errors to MCP_ERROR without exposing upstream details', () => {
     const mapped = mapIntelMcpError(new McpCallError('SECRET_UPSTREAM_ERROR', 'provider detail', false));
 

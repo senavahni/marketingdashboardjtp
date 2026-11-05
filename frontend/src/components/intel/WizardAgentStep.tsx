@@ -9,6 +9,7 @@ import { cn } from '../../lib/utils';
 import { ActorAvatar } from '../ui/avatar';
 import { Spinner } from '../ui/misc';
 import { FieldError } from './IntelUi';
+import { WizardScheduleCard } from './WizardScheduleCard';
 
 const STAGES: { stage: SelectableStage; icon: typeof Database; hint: string }[] = [
   { stage: 'collect', icon: Database, hint: 'Mengambil data dari sumber yang dipilih' },
@@ -55,9 +56,12 @@ export function WizardAgentStep({ draft, errors, workspaceId, onChange }: Props)
           </span>
         </span>
       </label>
+      <WizardScheduleCard draft={draft} errors={errors} workspaceId={workspaceId} onChange={onChange} />
       <div className="grid gap-4 md:grid-cols-2">
         {stages.map(({ stage, icon: Icon, hint }) => {
-          const anySelectable = list.some((a) => !agentOption(a, stage, sources).disabled);
+          const selectable = list.filter((a) => !agentOption(a, stage, sources).disabled);
+          const unavailable = list.filter((a) => agentOption(a, stage, sources).disabled);
+          const anySelectable = selectable.length > 0;
           return (
             <fieldset key={stage} className="rounded-2xl border border-line bg-[#FAFBFC] p-4">
               <legend className="sr-only">{STAGE_LABEL[stage]}</legend>
@@ -76,15 +80,13 @@ export function WizardAgentStep({ draft, errors, workspaceId, onChange }: Props)
                 </p>
               )}
               <div role="radiogroup" aria-label={STAGE_LABEL[stage]} className="space-y-1.5">
-                {list.map((a) => {
-                  const { disabled, reason } = agentOption(a, stage, sources);
+                {selectable.map((a) => {
                   const checked = draft.agents[stage] === a.id;
                   return (
                     <label
                       key={a.id}
                       className={cn(
-                        'flex items-center gap-3 rounded-xl border bg-white px-3 py-2 transition-all',
-                        disabled ? 'cursor-not-allowed border-line opacity-55' : 'cursor-pointer hover:border-[#0E9384]',
+                        'flex cursor-pointer items-center gap-3 rounded-xl border border-line bg-white px-3 py-2 transition-all hover:border-[#0E9384]',
                         checked && 'border-[#0E9384] shadow-[0_0_0_3px_rgba(14,147,132,0.12)]',
                       )}
                     >
@@ -93,18 +95,13 @@ export function WizardAgentStep({ draft, errors, workspaceId, onChange }: Props)
                         name={`agent-${stage}`}
                         className="sr-only"
                         checked={checked}
-                        disabled={disabled}
                         onChange={() => onChange((d) => ({ ...d, agents: { ...d.agents, [stage]: a.id } }))}
                       />
                       <ActorAvatar type="agent" name={a.name} size={26} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13px] font-medium text-ink">{a.name}</span>
                         <span className="block truncate text-[11px] text-ink-faint">
-                          {disabled
-                            ? reason
-                            : [a.route && `route ${a.route}`, a.run_token_budget && `budget ${formatTokens(a.run_token_budget)} token`]
-                                .filter(Boolean)
-                                .join(' · ')}
+                          {[a.route && `route ${a.route}`, a.run_token_budget && `budget ${formatTokens(a.run_token_budget)} token`].filter(Boolean).join(' · ')}
                         </span>
                       </span>
                       <span
@@ -118,6 +115,18 @@ export function WizardAgentStep({ draft, errors, workspaceId, onChange }: Props)
                   );
                 })}
               </div>
+              {unavailable.length > 0 && (
+                <details className="mt-2 text-[11px] text-ink-faint">
+                  <summary className="cursor-pointer select-none hover:text-ink-soft">{unavailable.length} agent lain tidak bisa dipilih</summary>
+                  <ul className="mt-1 space-y-0.5 pl-3">
+                    {unavailable.map((a) => (
+                      <li key={a.id}>
+                        <span className="text-ink-soft">{a.name}</span> — {agentOption(a, stage, sources).reason}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
               <FieldError message={errors[`agents.${stage}`]} />
             </fieldset>
           );

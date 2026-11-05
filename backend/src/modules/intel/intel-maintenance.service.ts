@@ -4,6 +4,7 @@ import { AppConfigService } from '../../config/app-config.service';
 import { PrismaService } from '../../database/prisma.service';
 import { RedisService } from '../../redis/redis.service';
 import { IntelService } from './intel.service';
+import { MissionService } from './mission.service';
 
 const INTEL_MAINTENANCE_QUEUE = 'intel-maintenance';
 const SWEEP_INTERVAL_MS = 120_000;
@@ -21,6 +22,7 @@ export class IntelMaintenanceService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
     private readonly intel: IntelService,
+    private readonly missions: MissionService,
   ) {}
 
   async onModuleInit() {
@@ -82,6 +84,8 @@ export class IntelMaintenanceService implements OnModuleInit, OnModuleDestroy {
           this.logger.warn({ job_id: job.id, error: (error as Error).message }, 'Sinkronisasi job Intel tertunda');
         }
       }
+      const recovered = await this.missions.recoverStale();
+      if (recovered) this.logger.log({ recovered }, 'Planning misi dipulihkan');
     } catch (error) {
       this.logger.error({ error }, 'Sweeper job Intel gagal');
     } finally {

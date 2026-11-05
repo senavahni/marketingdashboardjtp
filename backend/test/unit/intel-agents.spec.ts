@@ -41,7 +41,7 @@ function harness(mcpResult: unknown = { agents: PROFILES }) {
   const mcp = { call: jest.fn().mockResolvedValue(mcpResult) };
   const config = { isIntelEnabled: true };
   const activity = { log: jest.fn().mockResolvedValue(undefined) };
-  const service = new IntelService(config as never, prisma as never, access as never, redis as never, mcp as never, {} as never, activity as never);
+  const service = new IntelService(config as never, prisma as never, access as never, redis as never, mcp as never, {} as never, activity as never, {} as never);
   return { service, prisma, access, mcp, tx, config, activity };
 }
 
@@ -221,10 +221,23 @@ describe('IntelService.remove (purge Knowledge Base)', () => {
   function removable(stages: string[], purge: () => Promise<unknown>) {
     const h = harness();
     const job = { id: 'j1', workspace_id: ws, mcp_job_id: 'j_mcp1', status: 'completed', created_by: '77777777-7777-4777-8777-777777777777', stages: stages.map((stage) => ({ stage })), insight: null };
-    Object.assign(h.prisma, { intel_jobs: { findFirst: jest.fn().mockResolvedValue(job), update: jest.fn().mockResolvedValue(job) } });
+    Object.assign(h.prisma, {
+      intel_jobs: { findFirst: jest.fn().mockResolvedValue(job), update: jest.fn().mockResolvedValue(job) },
+      agent_missions: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    });
     h.mcp.call.mockImplementation((tool: string) => (tool === 'intel_job_purge_index' ? purge() : Promise.resolve({})));
     return h;
   }
+
+  it('misi job yang belum menulis rencana ikut dibatalkan (M3_TASK_013)', async () => {
+    const h = removable(['collect', 'analyze'], () => Promise.resolve({}));
+    await h.service.remove(user, 'j1');
+    const missions = (h.prisma as unknown as { agent_missions: { updateMany: jest.Mock } }).agent_missions;
+    expect(missions.updateMany).toHaveBeenCalledWith({
+      where: { intel_job_id: 'j1', status: { in: ['waiting_research', 'planning', 'awaiting_review'] } },
+      data: { status: 'cancelled' },
+    });
+  });
 
   it('job dengan tahap index → panggil intel_job_purge_index lalu soft delete', async () => {
     const h = removable(['collect', 'analyze', 'index'], () => Promise.resolve({ deleted_documents: 6, deleted_chunks: 7 }));

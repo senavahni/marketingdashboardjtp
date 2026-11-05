@@ -9,6 +9,7 @@ import {
   type IntelAgent,
   type IntelJob,
   type JobInput,
+  type ScheduleInput,
   type SelectableStage,
   type SourceSpec,
   type SourceType,
@@ -32,7 +33,14 @@ export interface WizardDraft {
   /** Simpan hasil ke Knowledge Base (tahap Indeks, M3_TASK_010). */
   saveToKb: boolean;
   agents: { collect: string; analyze: string; index?: string };
+  /** Masukkan ke Penjadwalan (M3_TASK_013); `projectId` = NEW_AI_PROJECT → project baru dibuat agent. */
+  schedule: { enabled: boolean; projectId: string; start: string; end: string; mode: 'auto' | 'review' };
 }
+
+export const NEW_AI_PROJECT = 'new';
+
+const SCHEDULE_DEFAULT_DAYS = 14;
+const SCHEDULE_MAX_DAYS = 180;
 
 export type DraftErrors = Partial<Record<string, string>>;
 
@@ -60,6 +68,13 @@ export function emptyDraft(today = new Date()): WizardDraft {
     aspects: [],
     saveToKb: false,
     agents: { collect: '', analyze: '' },
+    schedule: {
+      enabled: true,
+      projectId: NEW_AI_PROJECT,
+      start: isoDay(today),
+      end: isoDay(new Date(today.getTime() + (SCHEDULE_DEFAULT_DAYS - 1) * DAY_MS)),
+      mode: 'auto',
+    },
   };
 }
 
@@ -137,7 +152,29 @@ function agentErrors(d: WizardDraft): DraftErrors {
   if (!d.agents.collect) e['agents.collect'] = 'Pilih agent pengumpul';
   if (!d.agents.analyze) e['agents.analyze'] = 'Pilih agent analis';
   if (d.saveToKb && !d.agents.index) e['agents.index'] = 'Pilih agent indeks';
+  return { ...e, ...scheduleErrors(d) };
+}
+
+function scheduleErrors({ schedule: s }: WizardDraft): DraftErrors {
+  if (!s.enabled) return {};
+  const e: DraftErrors = {};
+  if (!s.projectId) e['schedule.project'] = 'Pilih project penjadwalan';
+  const start = Date.parse(s.start);
+  const end = Date.parse(s.end);
+  if (Number.isNaN(start) || Number.isNaN(end)) e['schedule.period'] = 'Tanggal tidak valid';
+  else if (end < start) e['schedule.period'] = 'Tanggal selesai tidak boleh sebelum tanggal mulai';
+  else if ((end - start) / DAY_MS + 1 > SCHEDULE_MAX_DAYS) e['schedule.period'] = `Timeline maksimal ${SCHEDULE_MAX_DAYS} hari`;
   return e;
+}
+
+/** Bagian `schedule` body create job (tidak ikut estimasi). */
+export function draftToSchedule({ schedule: s }: WizardDraft): ScheduleInput | undefined {
+  if (!s.enabled) return undefined;
+  return {
+    ...(s.projectId === NEW_AI_PROJECT ? {} : { project_id: s.projectId }),
+    period: { start_date: s.start, end_date: s.end },
+    approval_mode: s.mode,
+  };
 }
 
 /** Error untuk satu langkah (langkah 3 = estimasi tidak punya field sendiri). */
@@ -207,6 +244,8 @@ export function draftFromJob(job: IntelJob, today = new Date()): WizardDraft {
     until: job.spec.period.until,
     aspects: job.spec.stages?.analyze.aspects ?? [],
     saveToKb: !!index,
+    // Ulangi tidak membuat project/jadwal baru kecuali user mengaktifkannya
+    schedule: { ...base.schedule, enabled: false },
     agents: {
       collect: job.stages.find((s) => s.stage === 'collect')?.agent_id ?? '',
       analyze: job.stages.find((s) => s.stage === 'analyze')?.agent_id ?? '',

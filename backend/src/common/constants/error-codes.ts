@@ -34,6 +34,8 @@ export const ErrorCode = {
   JOB_NOT_ACTIVE: 'JOB_NOT_ACTIVE',
   FEATURE_DISABLED: 'FEATURE_DISABLED',
   SOURCE_UNAVAILABLE: 'SOURCE_UNAVAILABLE',
+  LLM_QUOTA_EXCEEDED: 'LLM_QUOTA_EXCEEDED',
+  LLM_ERROR: 'LLM_ERROR',
 } as const;
 
 export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];

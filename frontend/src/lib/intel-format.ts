@@ -4,7 +4,18 @@
  */
 import type { FlowEvent } from '../components/intel/viz3d/types';
 import { CAPABILITY_LABEL } from './intel-types';
-import type { Insight, IntelJob, JobStatus, JobUpdatedEvent, McpProfile, Sentiment, SourceType, StageStatus, Table } from './intel-types';
+import type {
+  Insight,
+  IntelJob,
+  JobStatus,
+  JobUpdatedEvent,
+  McpProfile,
+  MissionPlan,
+  Sentiment,
+  SourceType,
+  StageStatus,
+  Table,
+} from './intel-types';
 
 type AgentFormFields = { name?: string; handle?: string; mcp_agent_key?: string };
 
@@ -12,6 +23,18 @@ type AgentFormFields = { name?: string; handle?: string; mcp_agent_key?: string 
 export function applyMcpProfile<T extends AgentFormFields>(form: T, profile: McpProfile): T {
   const suggested = `Agent_${profile.agent_key.charAt(0).toUpperCase()}${profile.agent_key.slice(1)}`.replace(/[^A-Za-z0-9_]/g, '_').slice(0, 32);
   return { ...form, mcp_agent_key: profile.agent_key, name: form.name || suggested, handle: form.handle || suggested };
+}
+
+/** Jumlah task & subtask rencana misi (M3_TASK_013). */
+export function planCounts(plan: MissionPlan | null): { tasks: number; subtasks: number; byAgent: number } {
+  const tasks = plan?.tasks ?? [];
+  const items = tasks.flatMap((t) => [t, ...t.subtasks]);
+  return { tasks: tasks.length, subtasks: items.length - tasks.length, byAgent: items.filter((x) => x.executor === 'agent').length };
+}
+
+/** Tautan task induk misi di Penjadwalan (format sama dengan notifikasi). */
+export function missionTaskHref(workspaceId: string, projectId: string, taskId: string | null): string {
+  return `/w/${workspaceId}/p/${projectId}${taskId ? `?p=${taskId}` : ''}`;
 }
 
 /** Keterangan singkat profil MCP untuk daftar saran. */

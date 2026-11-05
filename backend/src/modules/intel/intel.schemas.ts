@@ -7,6 +7,7 @@ import {
   intelSourceSchema,
   periodSchema,
 } from '../../shared/schemas/intel.schema';
+import { intelScheduleInputSchema } from '../../shared/schemas/mission.schema';
 
 const uuid = z.uuid();
 
@@ -29,6 +30,8 @@ export const intelJobInputSchema = z.strictObject({
 export const createIntelJobSchema = intelJobInputSchema.extend({
   confirm_cost: z.boolean().default(false),
   retry_of_job_id: uuid.optional(),
+  // "Masukkan ke Penjadwalan" (M3_TASK_013)
+  schedule: intelScheduleInputSchema.optional(),
 });
 
 export const stageDefaultsInputSchema = z.strictObject({

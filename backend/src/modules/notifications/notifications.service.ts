@@ -16,7 +16,8 @@ export type NotificationType =
   | 'agent_task_completed'
   | 'agent_task_failed'
   | 'intel_job_completed'
-  | 'intel_job_failed';
+  | 'intel_job_failed'
+  | 'mission_plan_ready';
 
 export interface NotifyInput {
   recipients: (string | null | undefined)[];

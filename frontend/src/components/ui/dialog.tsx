@@ -18,13 +18,16 @@ export function Dialog({
   children: ReactNode;
   className?: string;
 }) {
+  // `cn` tidak menggabungkan kelas Tailwind yang bentrok: lebar default hanya bila pemanggil tidak memberi max-w-*
+  const customWidth = className?.split(/\s+/).some((c) => c.startsWith('max-w-'));
   return (
     <RD.Root open={open} onOpenChange={onOpenChange}>
       <RD.Portal>
         <RD.Overlay className="fixed inset-0 z-50 bg-black/30" />
         <RD.Content
           className={cn(
-            'fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-xl bg-white p-5 shadow-2xl outline-none',
+            'fixed top-1/2 left-1/2 z-50 max-h-[85vh] w-[92vw] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-xl bg-white p-5 shadow-2xl outline-none',
+            !customWidth && 'max-w-md',
             className,
           )}
         >

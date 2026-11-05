@@ -32,6 +32,8 @@ import { AccessService } from '../core/access.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { IntelMcpClient } from './intel-mcp-client.service';
 import { csvCell } from './intel-csv';
+import { MissionService } from './mission.service';
+import { PLANNER_TOOLSET, pickPlanner } from './mission.rules';
 import { redactGatewayKeys } from './intel-sanitizer';
 import {
   createIntelJobSchema,
@@ -74,6 +76,7 @@ export class IntelService {
     private readonly mcp: IntelMcpClient,
     private readonly notifications: NotificationsService,
     private readonly activity: ActivityService,
+    private readonly missions: MissionService,
   ) {}
 
   /** Profil agent di MCP untuk autocomplete form agent; `used_by` = agent workspace yang sudah memakai key tsb. */
@@ -240,26 +243,52 @@ export class IntelService {
     const collect = await this.localAgent(workspaceId, input.agents.collect);
     const analyze = await this.localAgent(workspaceId, input.agents.analyze);
     const index = input.agents.index ? await this.localAgent(workspaceId, input.agents.index) : null;
-    const rows = await this.prisma.intel_jobs.create({
-      data: {
-        id: jobId,
-        workspace_id: workspaceId,
-        title: spec.title,
-        spec: spec as Prisma.InputJsonValue,
-        sources: spec.sources.map((source) => source.type),
-        confirm_cost: input.confirm_cost,
-        requested_by_name: user.display_name.slice(0, 100),
-        created_by: user.id,
-        retry_of_job_id: input.retry_of_job_id,
-        stages: {
-          create: [
-            { stage: 'collect', agent_id: collect.id, agent_key: collect.mcp_agent_key },
-            { stage: 'analyze', agent_id: analyze.id, agent_key: analyze.mcp_agent_key },
-            ...(index ? [{ stage: 'index' as const, agent_id: index.id, agent_key: index.mcp_agent_key }] : []),
-          ],
+    const plannerId = input.schedule ? await this.resolvePlanner(workspaceId, input.schedule.planner_agent_id, requestId) : null;
+    const effects = new AfterCommit();
+    const rows = await this.prisma.tx(async (tx) => {
+      const job = await tx.intel_jobs.create({
+        data: {
+          id: jobId,
+          workspace_id: workspaceId,
+          title: spec.title,
+          spec: spec as Prisma.InputJsonValue,
+          sources: spec.sources.map((source) => source.type),
+          confirm_cost: input.confirm_cost,
+          requested_by_name: user.display_name.slice(0, 100),
+          created_by: user.id,
+          retry_of_job_id: input.retry_of_job_id,
+          stages: {
+            create: [
+              { stage: 'collect', agent_id: collect.id, agent_key: collect.mcp_agent_key },
+              { stage: 'analyze', agent_id: analyze.id, agent_key: analyze.mcp_agent_key },
+              ...(index ? [{ stage: 'index' as const, agent_id: index.id, agent_key: index.mcp_agent_key }] : []),
+            ],
+          },
         },
-      },
+      });
+      if (input.schedule && plannerId) {
+        const workspace = await tx.workspaces.findUniqueOrThrow({ where: { id: workspaceId }, select: { timezone: true } });
+        await this.missions.createForIntelJobInTx(
+          tx,
+          {
+            workspaceId,
+            job: { id: job.id, title: spec.title },
+            schedule: input.schedule,
+            plannerAgentId: plannerId,
+            stages: [
+              { stage: 'collect', agent: collect },
+              { stage: 'analyze', agent: analyze },
+              ...(index ? [{ stage: 'index' as const, agent: index }] : []),
+            ],
+            user,
+            timezone: workspace.timezone,
+          },
+          effects,
+        );
+      }
+      return job;
     });
+    await effects.run();
     const requestedBy = { user_id: user.id, name: user.display_name.slice(0, 100) };
     const mcpInput = jobCreateInputSchema.parse({
       contract_version: '1.2',
@@ -442,6 +471,11 @@ export class IntelService {
       await this.purgeIndex(job.workspace_id, job.mcp_job_id, requestId);
     }
     await this.prisma.intel_jobs.update({ where: { id: job.id }, data: { deleted_at: new Date() } });
+    // misi yang belum menulis rencana ikut dibatalkan; task yang sudah ada tetap di Penjadwalan
+    await this.prisma.agent_missions.updateMany({
+      where: { intel_job_id: job.id, status: { in: ['waiting_research', 'planning', 'awaiting_review'] } },
+      data: { status: 'cancelled' },
+    });
   }
 
   /** Buang dokumen job dari KB; best-effort agar MCP mati tidak menghalangi penghapusan job. */
@@ -546,6 +580,20 @@ export class IntelService {
         ...(index ? { index: { agent_key: index.mcp_agent_key, enabled: true } } : {}),
       },
     });
+  }
+
+  /** Agent planner misi = agent workspace aktif yang profil MCP-nya punya toolset `task` (M3_TASK_013). */
+  private async resolvePlanner(workspaceId: string, requestedId: string | undefined, requestId?: string): Promise<string> {
+    const profiles = await this.cachedMcp('intel:agents', false, () => this.mcp.call('intel_agents_list', {}, agentsListSchema, requestId));
+    const capable = new Set(profiles.agents.filter((p) => p.is_active && p.toolsets.includes(PLANNER_TOOLSET)).map((p) => p.agent_key));
+    const local = await this.prisma.agents.findMany({
+      where: { workspace_id: workspaceId, is_active: true, deleted_at: null },
+      select: { id: true, mcp_agent_key: true },
+      orderBy: { name: 'asc' },
+    });
+    const planner = pickPlanner(local, capable, requestedId);
+    if (!planner) throw Errors.business(ErrorCode.AGENT_NOT_CAPABLE, 'Tidak ada agent planner (butuh agent dengan toolset task, mis. Agent_Strategist)');
+    return planner.id;
   }
 
   private assertCapability(agentKey: string, capability: AgentStage, profiles: AgentInfo[]) {

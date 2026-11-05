@@ -10,6 +10,7 @@ import { RealtimeService } from '../realtime/realtime.service';
 import { INTEL_STAGES, IntelEventEnvelope, intelEventDataSchemas, intelEventEnvelopeSchema } from '../../shared/schemas/intel.schema';
 import { IntelService } from './intel.service';
 import { nextIntelStatus } from './intel-state';
+import { MissionService } from './mission.service';
 
 const EVENT_STALE_MS = 60_000;
 
@@ -26,6 +27,7 @@ export class IntelEventService {
     private readonly notifications: NotificationsService,
     private readonly realtime: RealtimeService,
     private readonly intel: IntelService,
+    private readonly missions: MissionService,
   ) {}
 
   async handle(body: unknown): Promise<{ status: 'processed' | 'duplicate' }> {
@@ -164,6 +166,7 @@ export class IntelEventService {
           );
         }
       }
+      await this.syncMission(envelope.event_type, updated.jobId, eventData);
       return { status: 'processed' };
     } catch (error) {
       await this.prisma.mcp_webhook_events
@@ -180,6 +183,30 @@ export class IntelEventService {
         );
       this.logger.warn({ event_id: envelope.event_id, job_id: envelope.job_id, error }, 'Webhook Intel ditolak');
       throw error;
+    }
+  }
+
+  /** Penjadwalan (M3_TASK_013): subtask tahap ikut event; planning dimulai di latar saat job selesai. */
+  private async syncMission(eventType: string, jobId: string, data: Record<string, unknown>): Promise<void> {
+    const stage = INTEL_STAGES.find((item) => item === data.stage);
+    try {
+      if (eventType === 'intel.job.stage.started' && stage) await this.missions.onStageEvent(jobId, stage, 'started');
+      if (eventType === 'intel.job.stage.completed' && stage) {
+        await this.missions.onStageEvent(jobId, stage, data.status === 'skipped' ? 'skipped' : 'completed');
+      }
+      if (eventType === 'intel.job.failed') {
+        const message = (data.error as { message?: string } | undefined)?.message;
+        if (stage) await this.missions.onStageEvent(jobId, stage, 'failed', message);
+        await this.missions.onJobTerminal(jobId, 'failed');
+      }
+      if (eventType === 'intel.job.cancelled') await this.missions.onJobTerminal(jobId, 'cancelled');
+      if (eventType === 'intel.job.completed') {
+        void this.missions
+          .onJobTerminal(jobId, 'completed')
+          .catch((error: unknown) => this.logger.error({ job_id: jobId, error }, 'Planning misi gagal dimulai'));
+      }
+    } catch (error) {
+      this.logger.warn({ job_id: jobId, event_type: eventType, error: (error as Error).message }, 'Sinkron misi gagal');
     }
   }
 

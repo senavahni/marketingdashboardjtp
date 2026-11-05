@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Browser, type Locator, type Page } from '@playwright/test';
 
 /**
  * E2E Modul 3 di stack nyata (M3_TASK_006 §B, E2E-M3-01..07): Dashboard + MCP + LLM Gateway (OpenAI sungguhan).
@@ -21,6 +21,9 @@ let page: Page;
 let api: APIRequestContext;
 const tokens: Record<string, string> = {};
 const cleanup: string[] = [];
+/** Project milik AI yang dibuat E2E-M3-09 — dihapus di akhir. */
+const aiProjects: string[] = [];
+const PLAN_TIMEOUT_MS = 240_000;
 let jobId = '';
 
 async function login(p: Page, who: string): Promise<void> {
@@ -45,6 +48,13 @@ async function jobStatus(id: string): Promise<{ status: string; retry_of_job_id:
   const res = await api.get(`/api/v1/intel/jobs/${id}`, { headers: auth('member') });
   expect(res.status()).toBe(200);
   return (await res.json()) as { status: string; retry_of_job_id: string | null };
+}
+
+/** Tes selain E2E-M3-09 tidak menulis ke Penjadwalan (kartu aktif otomatis bila workspace punya project). */
+async function noSchedule(wizard: Locator): Promise<void> {
+  const box = wizard.getByRole('checkbox', { name: /Masukkan ke Penjadwalan/ });
+  await expect(box).toBeChecked();
+  await box.uncheck();
 }
 
 /** Job lambat (8 halaman, rate limit per domain) supaya sempat dibatalkan dari UI. */
@@ -76,6 +86,7 @@ test.beforeAll(async ({ browser, playwright, baseURL }) => {
 });
 
 test.afterAll(async () => {
+  for (const id of aiProjects) await api.delete(`/api/v1/projects/${id}`, { headers: auth('owner') });
   for (const id of cleanup) await api.delete(`/api/v1/intel/jobs/${id}`, { headers: auth('member') });
   await api.dispose();
 });
@@ -102,7 +113,9 @@ test('E2E-M3-01 buat job via wizard dengan agent default → estimasi tampil →
   // Langkah 3 (M3_TASK_008): default per tahap terpilih otomatis
   await expect(wizard.getByRole('radiogroup', { name: 'Kumpulkan data' }).getByRole('radio', { name: /Agent_Researcher/ })).toBeChecked();
   await expect(wizard.getByRole('radiogroup', { name: 'Analisis' }).getByRole('radio', { name: /Agent_Analyst/ })).toBeChecked();
-  await expect(wizard.getByRole('radiogroup', { name: 'Analisis' }).getByRole('radio', { name: /Agent_Strategist/ })).toBeDisabled();
+  // agent yang tidak mampu tidak bisa dipilih (diringkas di bawah daftar)
+  await expect(wizard.getByRole('radiogroup', { name: 'Analisis' }).getByRole('radio', { name: /Agent_Strategist/ })).toHaveCount(0);
+  await noSchedule(wizard);
   await wizard.getByRole('button', { name: 'Lanjut' }).click();
 
   const run = wizard.getByRole('button', { name: 'Jalankan riset' });
@@ -214,6 +227,7 @@ test('E2E-M3-08 simpan ke Knowledge Base: toggle wizard → tahap Indeks → bad
   await expect(indexGroup.getByRole('radio', { name: /Agent_Researcher/ })).toBeEnabled();
   await indexGroup.getByText('Agent_Strategist').click();
   await expect(indexGroup.getByRole('radio', { name: /Agent_Strategist/ })).toBeChecked();
+  await noSchedule(wizard);
   await wizard.getByRole('button', { name: 'Lanjut' }).click();
 
   await expect(wizard.getByText('Indeks', { exact: true })).toBeVisible({ timeout: 45_000 });
@@ -246,6 +260,61 @@ test('E2E-M3-08 simpan ke Knowledge Base: toggle wizard → tahap Indeks → bad
   const scene = page.getByRole('img', { name: /Visualisasi 3D aliran data riset/ });
   const fallback = page.getByText('Tampilan 3D dinonaktifkan.', { exact: false });
   await expect(scene.or(fallback)).toBeVisible({ timeout: 20_000 });
+});
+
+test('E2E-M3-09 masukkan ke Penjadwalan: subtask tahap ikut job → agent menulis rencana (mode auto, M3_TASK_013)', async () => {
+  test.setTimeout(JOB_TIMEOUT_MS + PLAN_TIMEOUT_MS);
+  await page.goto(`/w/${WS}/intel`);
+  await page.getByRole('button', { name: 'Job Baru' }).click();
+  const wizard = page.getByRole('dialog', { name: 'Job riset baru' });
+  await wizard.getByLabel('Judul riset').fill(`E2E Jadwal ${RUN}`);
+  const x = wizard.getByRole('checkbox', { name: /^X / });
+  if ((await x.getAttribute('aria-checked')) === 'true') await x.click();
+  await wizard.getByRole('checkbox', { name: /^Web / }).click();
+  await wizard.getByPlaceholder('https://contoh.id/artikel').fill(URL_UNDER_TEST);
+  await wizard.getByPlaceholder('https://contoh.id/artikel').press('Enter');
+  await wizard.getByRole('button', { name: 'Lanjut' }).click();
+  await wizard.getByRole('button', { name: '7 hari terakhir' }).click();
+  await wizard.getByRole('button', { name: 'Lanjut' }).click();
+
+  // default: aktif, project baru milik AI, mode "Langsung jalan"
+  await expect(wizard.getByRole('checkbox', { name: /Masukkan ke Penjadwalan/ })).toBeChecked();
+  await expect(wizard.getByRole('combobox', { name: /Project/ })).toHaveValue('new');
+  await expect(wizard.getByRole('radiogroup', { name: 'Mode rencana' }).getByRole('radio', { name: /Langsung jalan/ })).toBeChecked();
+  await wizard.getByRole('button', { name: 'Lanjut' }).click();
+  const run = wizard.getByRole('button', { name: 'Jalankan riset' });
+  await expect(run).toBeEnabled({ timeout: 45_000 });
+  await run.click();
+  await page.waitForURL(new RegExp(`/w/${WS}/intel/[0-9a-f-]{36}$`));
+  const id = page.url().split('/').pop() as string;
+  cleanup.push(id);
+
+  const card = page.locator('section').filter({ has: page.getByText('Jadwal', { exact: true }) });
+  await expect(card).toBeVisible();
+  await expect(jobHeader(page).getByText('Selesai', { exact: true })).toBeVisible({ timeout: JOB_TIMEOUT_MS });
+  await expect(card.getByText('Terjadwal di Penjadwalan')).toBeVisible({ timeout: PLAN_TIMEOUT_MS });
+  await expect(card).toContainText(/\d+ task \+ \d+ subtask/);
+
+  const mission = (await (await api.get(`/api/v1/intel/jobs/${id}/mission`, { headers: auth('member') })).json()) as {
+    data: { root_task_id: string; project_id: string; status: string };
+  };
+  aiProjects.push(mission.data.project_id);
+  const aiProject = (await (await api.get(`/api/v1/projects/${mission.data.project_id}`, { headers: auth('member') })).json()) as {
+    title: string;
+    icon: string | null;
+  };
+  expect(aiProject).toMatchObject({ title: `Riset: E2E Jadwal ${RUN}`, icon: '🤖' });
+  const root = (await (await api.get(`/api/v1/tasks/${mission.data.root_task_id}`, { headers: auth('member') })).json()) as {
+    tags: string[];
+    subtasks: { title: string; status: string; tags: string[] }[];
+  };
+  expect(root.tags).toContain('misi');
+  const stages = root.subtasks.filter((s) => s.tags.some((t) => t.startsWith('tahap:')));
+  expect(stages.map((s) => s.status)).toEqual(['done', 'done']);
+  expect(root.subtasks.length).toBeGreaterThan(stages.length); // + task rencana agent
+
+  await card.getByRole('link', { name: /Buka di Penjadwalan/ }).click();
+  await page.waitForURL(new RegExp(`/w/${WS}/p/${mission.data.project_id}`));
 });
 
 test('E2E-M3-06 AI & Gateway: admin melihat key per agent; member tidak punya akses', async ({ browser }) => {

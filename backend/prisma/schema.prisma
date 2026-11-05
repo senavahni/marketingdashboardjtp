@@ -108,6 +108,28 @@ enum intel_stage_status {
   cancelled
 }
 
+enum mission_source {
+  intel_job
+  manual
+}
+
+enum mission_approval {
+  auto
+  review
+}
+
+enum mission_status {
+  waiting_research
+  planning
+  awaiting_review
+  scheduled
+  running
+  paused
+  completed
+  failed
+  cancelled
+}
+
 model users {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email         String    @unique @db.Citext
@@ -133,6 +155,7 @@ model users {
   web_reports_updated web_report_sessions[] @relation("web_report_updater")
   intel_jobs_created intel_jobs[]          @relation("intel_job_creator")
   intel_stage_defaults_updated intel_stage_defaults[] @relation("intel_stage_default_updater")
+  missions_created    agent_missions[]      @relation("mission_creator")
 }
 
 model refresh_tokens {
@@ -174,6 +197,7 @@ model workspaces {
   web_reports   web_report_sessions[]
   intel_jobs    intel_jobs[]
   intel_stage_defaults intel_stage_defaults[]
+  missions      agent_missions[]
 }
 
 model workspace_members {
@@ -211,6 +235,7 @@ model agents {
   agent_runs     agent_runs[]
   intel_job_stages intel_job_stages[]
   intel_stage_defaults intel_stage_defaults[]
+  missions       agent_missions[]
 }
 
 model projects {
@@ -232,6 +257,7 @@ model projects {
   activity_logs activity_logs[]
   notifications notifications[]
   agent_runs    agent_runs[]
+  missions      agent_missions[]
 }
 
 model tasks {
@@ -265,6 +291,7 @@ model tasks {
   assignee_agent agents?           @relation("task_assignee_agent", fields: [assignee_agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   blocks         document_blocks[]
   agent_runs     agent_runs[]
+  mission_root   agent_missions?   @relation("mission_root_task")
 
   @@index([project_id, status, order_index], map: "tasks_project_idx")
   @@index([parent_task_id], map: "tasks_parent_idx")
@@ -436,6 +463,7 @@ model intel_jobs {
   stages        intel_job_stages[]
   insight       intel_insights?
   webhook_events mcp_webhook_events[]
+  mission       agent_missions?
 
   @@index([workspace_id, created_at(sort: Desc)], map: "intel_jobs_ws_idx")
   @@index([status, updated_at], map: "intel_jobs_active_idx")
@@ -517,4 +545,42 @@ model web_report_sessions {
   workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   creator   users?     @relation("web_report_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   updater   users?     @relation("web_report_updater", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// Misi agent (M3_TASK_013/014): rencana task + subtask di bawah task induk misi.
+model agent_missions {
+  id                    String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id          String           @db.Uuid
+  project_id            String           @db.Uuid
+  agent_id              String           @db.Uuid
+  source                mission_source
+  intel_job_id          String?          @unique(map: "agent_missions_intel_job_key") @db.Uuid
+  title                 String           @db.VarChar(150)
+  instruction           String
+  start_date            DateTime         @db.Date
+  end_date              DateTime         @db.Date
+  approval_mode         mission_approval @default(auto)
+  status                mission_status   @default(planning)
+  plan                  Json?
+  plan_revision         Int              @default(0)
+  materialized_revision Int?
+  feedback              String?
+  error                 Json?
+  root_task_id          String?          @unique(map: "agent_missions_root_task_key") @db.Uuid
+  cost_usd              Float            @default(0)
+  planning_started_at   DateTime?        @db.Timestamptz(6)
+  created_by            String?          @db.Uuid
+  created_at            DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at            DateTime?        @db.Timestamptz(6)
+
+  workspace workspaces  @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  project   projects    @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  agent     agents      @relation(fields: [agent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  intel_job intel_jobs? @relation(fields: [intel_job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  root_task tasks?      @relation("mission_root_task", fields: [root_task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator   users?      @relation("mission_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([workspace_id, created_at(sort: Desc)], map: "agent_missions_ws_idx")
+  @@index([status, updated_at], map: "agent_missions_status_idx")
 }

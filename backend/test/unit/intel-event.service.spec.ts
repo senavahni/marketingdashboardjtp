@@ -43,6 +43,7 @@ function createHarness(jobOverrides: Record<string, unknown> = {}, eventAlreadyP
   const prisma = {
     mcp_webhook_events: {
       findUnique: jest.fn().mockResolvedValue(eventAlreadyProcessed ? { status: 'processed' } : null),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     intel_jobs: { findUnique: jest.fn().mockResolvedValue(job) },
     tx: jest.fn((callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx)),
@@ -50,9 +51,26 @@ function createHarness(jobOverrides: Record<string, unknown> = {}, eventAlreadyP
   const notifications = { notify: jest.fn() };
   const realtime = { toWorkspace: jest.fn() };
   const intel = { refreshFromMcp: jest.fn() };
-  const service = new IntelEventService(prisma as never, notifications as never, realtime as never, intel as never);
-  return { service, prisma, tx, notifications, realtime };
+  const missions = { onStageEvent: jest.fn().mockResolvedValue(undefined), onJobTerminal: jest.fn().mockResolvedValue(undefined) };
+  const service = new IntelEventService(prisma as never, notifications as never, realtime as never, intel as never, missions as never);
+  return { service, prisma, tx, notifications, realtime, missions };
 }
+
+describe('IntelEventService → misi (M3_TASK_013)', () => {
+  it('event tahap diteruskan ke subtask tahap; job selesai memulai planning', async () => {
+    const h = createHarness({ status: 'queued', last_event_sequence: 1, mcp_job_id: 'j_k3m9x2qa1b' });
+    await h.service.handle({ ...baseEvent, event_type: 'intel.job.stage.started', sequence: 2, data: { stage: 'collect', agent_key: 'researcher' } });
+    expect(h.missions.onStageEvent).toHaveBeenCalledWith(jobId, 'collect', 'started');
+
+    const failing = createHarness({ status: 'analyzing', last_event_sequence: 3, mcp_job_id: 'j_k3m9x2qa1b' });
+    failing.missions.onStageEvent.mockRejectedValue(new Error('db'));
+    const failed = { ...baseEvent, event_id: '66666666-6666-4666-8666-666666666667', event_type: 'intel.job.failed', sequence: 4 };
+    await expect(
+      failing.service.handle({ ...failed, data: { stage: 'analyze', error: { code: 'LLM_KEY_INVALID', message: 'Key ditolak', retryable: false } } }),
+    ).resolves.toEqual({ status: 'processed' }); // kegagalan sinkron misi tidak menggagalkan webhook
+    expect(failing.missions.onStageEvent).toHaveBeenCalledWith(jobId, 'analyze', 'failed', 'Key ditolak');
+  });
+});
 
 describe('IntelEventService', () => {
   it('correlates and processes an event transactionally, advancing sequence and status', async () => {

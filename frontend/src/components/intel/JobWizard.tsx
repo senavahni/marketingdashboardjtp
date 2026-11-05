@@ -10,6 +10,7 @@ import {
   WIZARD_STEPS,
   draftFromJob,
   draftToInput,
+  draftToSchedule,
   emptyDraft,
   firstInvalidStep,
   validateStep,
@@ -74,7 +75,7 @@ export function JobWizard({ workspaceId, open, onOpenChange, retryOf, onCreated 
   const submit = () => {
     if (!input) return;
     create.mutate(
-      { ...input, confirm_cost: needsConfirm ? confirmed : false, retry_of_job_id: retryOf?.id },
+      { ...input, confirm_cost: needsConfirm ? confirmed : false, retry_of_job_id: retryOf?.id, schedule: draftToSchedule(draft) },
       {
         onSuccess: (job) => {
           toast.success('Job riset dimulai', { description: job.title });

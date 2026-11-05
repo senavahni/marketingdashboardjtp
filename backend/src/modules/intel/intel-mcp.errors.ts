@@ -15,6 +15,9 @@ const MCP_MESSAGES: Record<string, string> = {
   VALIDATION_ERROR: 'Permintaan ditolak oleh layanan MCP',
   SOURCE_UNAVAILABLE: 'Sumber data tidak tersedia',
   RATE_LIMITED: 'Batas permintaan MCP tercapai',
+  BUDGET_EXCEEDED: 'Kuota LLM Gateway habis. Naikkan kuota project marketing-mcp di konsol Gateway atau tunggu reset harian (00.00 UTC)',
+  UPSTREAM_ERROR: 'Model LLM gagal memberi jawaban yang valid, coba lagi',
+  UPSTREAM_TIMEOUT: 'Model LLM terlalu lama menjawab, coba lagi',
 };
 
 const MCP_ERRORS: Record<string, { code: ErrorCodeValue; status: number }> = {
@@ -31,6 +34,9 @@ const MCP_ERRORS: Record<string, { code: ErrorCodeValue; status: number }> = {
   NOT_FOUND: { code: ErrorCode.NOT_FOUND, status: HttpStatus.NOT_FOUND },
   RESULT_EXPIRED: { code: ErrorCode.RESULT_EXPIRED, status: HttpStatus.GONE },
   JOB_NOT_ACTIVE: { code: ErrorCode.JOB_NOT_ACTIVE, status: HttpStatus.CONFLICT },
+  BUDGET_EXCEEDED: { code: ErrorCode.LLM_QUOTA_EXCEEDED, status: HttpStatus.TOO_MANY_REQUESTS },
+  UPSTREAM_ERROR: { code: ErrorCode.LLM_ERROR, status: HttpStatus.BAD_GATEWAY },
+  UPSTREAM_TIMEOUT: { code: ErrorCode.LLM_ERROR, status: HttpStatus.GATEWAY_TIMEOUT },
 };
 
 export function mapIntelMcpError(error: McpCallError): AppException {
