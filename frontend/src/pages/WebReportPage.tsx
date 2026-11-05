@@ -6,7 +6,7 @@ import { WebReportCompareModal } from '../components/web-report/WebReportCompare
 import { WebReportFormDialog } from '../components/web-report/WebReportFormDialog';
 import { WebReportResultModal } from '../components/web-report/WebReportResultModal';
 import { Button, IconButton } from '../components/ui/button';
-import { EmptyState, Spinner } from '../components/ui/misc';
+import { EmptyState, ListSkeleton, Spinner } from '../components/ui/misc';
 import { MenuItem, Popover } from '../components/ui/popover';
 import { useDeleteWebReport, useWebReports, type WebReportFilters } from '../hooks/web-report-queries';
 import { useAuth } from '../lib/auth-store';
@@ -119,9 +119,7 @@ export function WebReportPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex h-48 items-center justify-center">
-            <Spinner className="h-6 w-6" />
-          </div>
+          <ListSkeleton rows={5} />
         ) : isError ? (
           <EmptyState icon="⚠️" title="Gagal memuat laporan">
             <Button variant="outline" onClick={() => void refetch()}>

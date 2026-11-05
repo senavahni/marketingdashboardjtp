@@ -81,12 +81,12 @@ export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role
             <LogOut size={14} /> Keluar
           </MenuItem>
         </Popover>
-        <IconButton label="Tutup sidebar" onClick={toggleSidebar} className="opacity-0 group-hover/sidebar:opacity-100">
+        <IconButton label="Tutup sidebar" onClick={toggleSidebar} className="opacity-0 group-hover/sidebar:opacity-100 focus-visible:opacity-100">
           <PanelLeftClose size={15} />
         </IconButton>
       </div>
 
-      <nav className="space-y-0.5 px-2">
+      <nav aria-label="Menu utama" className="space-y-0.5 px-2">
         <NavLink
           to={`/w/${workspaceId}`}
           end
@@ -127,7 +127,7 @@ export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role
           <div className="group/section flex items-center justify-between px-2 py-1 text-[12px] font-medium text-ink-faint">
             Proyek
             {canEdit && (
-              <IconButton label="Proyek baru" onClick={newProject} className="opacity-0 group-hover/section:opacity-100">
+              <IconButton label="Proyek baru" onClick={newProject} className="opacity-0 group-hover/section:opacity-100 focus-visible:opacity-100">
                 <Plus size={14} />
               </IconButton>
             )}
@@ -139,7 +139,7 @@ export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role
                 <span className="truncate">{p.title}</span>
               </NavLink>
               {canEdit && (
-                <Popover align="start" trigger={<IconButton label="Opsi" className="mr-1 opacity-0 group-hover/item:opacity-100"><MoreHorizontal size={14} /></IconButton>}>
+                <Popover align="start" trigger={<IconButton label={`Opsi ${p.title}`} className="mr-1 opacity-0 group-hover/item:opacity-100 focus-visible:opacity-100"><MoreHorizontal size={14} /></IconButton>}>
                   <MenuItem
                     danger
                     onSelect={() =>

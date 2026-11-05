@@ -1,17 +1,37 @@
 import { Loader2 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { AGENT_STATUS, priorityMeta, statusMeta } from '../../lib/constants';
 import type { AgentStatus, TaskPriority, TaskStatus } from '../../lib/types';
 import { cn } from '../../lib/utils';
 
 export function Spinner({ className }: { className?: string }) {
-  return <Loader2 className={cn('animate-spin text-ink-faint', className)} size={16} />;
+  return <Loader2 role="status" aria-label="Memuat" className={cn('animate-spin text-ink-faint', className)} size={16} />;
 }
 
 export function FullPageSpinner() {
   return (
     <div className="flex h-full items-center justify-center">
       <Spinner className="h-6 w-6" />
+    </div>
+  );
+}
+
+export function Skeleton({ className, style }: { className?: string; style?: CSSProperties }) {
+  return <div aria-hidden="true" style={style} className={cn('animate-pulse rounded bg-hover-strong motion-reduce:animate-none', className)} />;
+}
+
+/** Kerangka tabel/daftar saat data view dimuat (menggantikan spinner layar penuh). */
+export function ListSkeleton({ rows = 8 }: { rows?: number }) {
+  return (
+    <div role="status" aria-busy="true" aria-label="Memuat data" className="flex-1">
+      <Skeleton className="mb-3 h-8 w-full" />
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex h-9 items-center gap-4 border-b border-line">
+          <Skeleton className="h-3.5" style={{ width: `${32 + ((i * 17) % 28)}%` }} />
+          <Skeleton className="ml-auto h-3.5 w-20" />
+          <Skeleton className="hidden h-3.5 w-24 md:block" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -56,10 +76,14 @@ export function AgentStatusBadge({ status, className }: { status: AgentStatus; c
 
 export function EmptyState({ icon, title, children }: { icon?: ReactNode; title: string; children?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-ink-soft">
-      {icon && <div className="text-4xl">{icon}</div>}
-      <div className="font-medium text-ink">{title}</div>
-      {children}
+    <div className="flex flex-col items-center justify-center gap-1.5 px-6 py-16 text-center text-[13px] text-ink-soft">
+      {icon && (
+        <div aria-hidden="true" className="mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-sidebar text-3xl">
+          {icon}
+        </div>
+      )}
+      <div className="text-[15px] font-semibold text-ink">{title}</div>
+      {children && <div className="flex max-w-md flex-col items-center gap-2 leading-relaxed">{children}</div>}
     </div>
   );
 }

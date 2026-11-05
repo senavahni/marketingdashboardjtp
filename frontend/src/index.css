@@ -4,14 +4,15 @@
 @theme {
   --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, 'Apple Color Emoji', Arial, sans-serif;
   --color-ink: #37352f;
-  --color-ink-soft: rgba(55, 53, 47, 0.65);
-  --color-ink-faint: rgba(55, 53, 47, 0.45);
+  /* Alfa dinaikkan agar teks sekunder/tersier ≥ 4.5:1 di atas putih & latar hover (WCAG AA) */
+  --color-ink-soft: rgba(55, 53, 47, 0.82);
+  --color-ink-faint: rgba(55, 53, 47, 0.72);
   --color-line: rgba(55, 53, 47, 0.09);
   --color-line-strong: rgba(55, 53, 47, 0.16);
   --color-hover: rgba(55, 53, 47, 0.06);
   --color-hover-strong: rgba(55, 53, 47, 0.1);
   --color-sidebar: #f7f7f5;
-  --color-accent: #2383e2;
+  --color-accent: #1d70c4;
   --color-agent: #7c3aed;
   --color-agent-soft: #f3eefe;
 }
@@ -27,6 +28,26 @@ body {
 }
 ::selection {
   background: rgba(35, 131, 226, 0.28);
+}
+
+/* Fokus keyboard yang terlihat untuk elemen interaktif; utilitas Tailwind pada elemen tetap menang (specificity 0) */
+@layer base {
+  :where(a, button, summary, [role='button'], [role='tab'], [tabindex]:not([tabindex='-1'])):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Hormati prefers-reduced-motion; spinner tetap berputar karena menandakan proses berjalan */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Scrollbar tipis */
