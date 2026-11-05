@@ -119,7 +119,7 @@ export function TableView({ tasks }: { tasks: Task[] }) {
               return (
                 <div
                   key={t.id}
-                  className={cn('group absolute left-0 grid w-full border-b border-line text-[13px] hover:bg-stone-50', selected.has(t.id) && 'bg-sky-50/60')}
+                  className={cn('group absolute left-0 grid w-full border-b border-line text-[13px] hover:bg-stone-50 focus-within:bg-stone-50', selected.has(t.id) && 'bg-sky-50/60')}
                   style={{ top: vi.start, height: ROW_H, gridTemplateColumns: template }}
                 >
                   <div className="flex items-center justify-center">
@@ -129,7 +129,7 @@ export function TableView({ tasks }: { tasks: Task[] }) {
                         aria-label={`Pilih ${t.title}`}
                         checked={selected.has(t.id)}
                         onChange={() => toggleSelect(t.id)}
-                        className={cn('opacity-0 group-hover:opacity-100', selected.size > 0 && 'opacity-100')}
+                        className={cn('opacity-0 group-hover:opacity-100 focus-visible:opacity-100', selected.size > 0 && 'opacity-100')}
                       />
                     )}
                   </div>
@@ -155,7 +155,7 @@ export function TableView({ tasks }: { tasks: Task[] }) {
                       <button
                         onClick={() => setDuplicating(t)}
                         title={t.parent_task_id ? 'Salin subtask' : 'Salin task'}
-                        className="ml-auto hidden shrink-0 items-center gap-1 rounded border border-line bg-white px-1.5 py-0.5 text-[11px] font-medium text-ink-soft shadow-sm group-hover:inline-flex"
+                        className="ml-auto hidden shrink-0 items-center gap-1 rounded border border-line bg-white px-1.5 py-0.5 text-[11px] font-medium text-ink-soft shadow-sm group-focus-within:inline-flex group-hover:inline-flex"
                       >
                         <Copy size={11} /> SALIN
                       </button>
@@ -163,7 +163,7 @@ export function TableView({ tasks }: { tasks: Task[] }) {
                     <button
                       onClick={() => openTask(t.id)}
                       className={cn(
-                        'hidden shrink-0 items-center gap-1 rounded border border-line bg-white px-1.5 py-0.5 text-[11px] font-medium text-ink-soft shadow-sm group-hover:inline-flex',
+                        'hidden shrink-0 items-center gap-1 rounded border border-line bg-white px-1.5 py-0.5 text-[11px] font-medium text-ink-soft shadow-sm group-focus-within:inline-flex group-hover:inline-flex',
                         canEdit ? 'ml-1' : 'ml-auto',
                       )}
                     >
@@ -213,7 +213,7 @@ export function TableView({ tasks }: { tasks: Task[] }) {
                 <Plus size={14} /> Baru
               </button>
             ))}
-          {!rows.length && !canEdit && <EmptyState icon="📭" title="Belum ada task" />}
+          {!rows.length && <EmptyState icon="📭" title="Belum ada task">{canEdit ? 'Klik “Baru” untuk menambahkan task pertama.' : undefined}</EmptyState>}
           <div className="h-2 text-[12px] text-ink-faint" />
         </div>
       </div>

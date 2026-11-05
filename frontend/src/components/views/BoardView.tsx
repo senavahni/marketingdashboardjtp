@@ -104,7 +104,8 @@ export function BoardView({ tasks }: { tasks: Task[] }) {
       <div className="mb-2 flex justify-end">
         <button
           onClick={() => setBoardSubtasks(!boardSubtasks)}
-          className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-[12px] text-ink-soft hover:bg-hover', boardSubtasks && 'bg-hover text-ink')}
+          aria-pressed={boardSubtasks}
+          className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-[12px] transition-colors hover:bg-hover', boardSubtasks ? 'bg-hover text-ink' : 'text-ink-soft')}
         >
           <ListTree size={13} /> {boardSubtasks ? 'Sembunyikan subtask' : 'Tampilkan subtask'}
         </button>
@@ -140,6 +141,7 @@ function Column({ status, ids, byId, canEdit }: { status: TaskStatus; ids: strin
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {ids.map((id) => byId.get(id) && <SortableCard key={id} task={byId.get(id)!} disabled={!canEdit} />)}
         </SortableContext>
+        {ids.length === 0 && adding === null && <div className="rounded-md border border-dashed border-line-strong px-2 py-4 text-center text-[12px] text-ink-faint">Belum ada task</div>}
         {canEdit &&
           (adding !== null ? (
             <input
@@ -179,7 +181,7 @@ function Card({ task, overlay }: { task: Task; overlay?: boolean }) {
     <div
       onClick={() => openTask(task.id)}
       className={cn(
-        'cursor-pointer rounded-md border border-line bg-white p-2.5 text-[13px] shadow-[0_1px_2px_rgba(15,15,15,0.08)] hover:bg-stone-50',
+        'cursor-pointer rounded-md border border-line bg-white p-2.5 text-[13px] shadow-[0_1px_2px_rgba(15,15,15,0.08)] transition-colors hover:border-line-strong hover:bg-stone-50',
         overlay && 'rotate-1 shadow-lg',
       )}
     >

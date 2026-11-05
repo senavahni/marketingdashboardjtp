@@ -6,7 +6,7 @@ import { Comments } from '../components/collab/Comments';
 import { BlockEditor } from '../components/editor/BlockEditor';
 import { TaskPanel } from '../components/task/TaskPanel';
 import { Button } from '../components/ui/button';
-import { EmptyState, FullPageSpinner } from '../components/ui/misc';
+import { EmptyState, FullPageSpinner, ListSkeleton } from '../components/ui/misc';
 import { Popover } from '../components/ui/popover';
 import { BoardView } from '../components/views/BoardView';
 import { TableView } from '../components/views/TableView';
@@ -81,12 +81,12 @@ export function ProjectPage() {
   return (
     <ViewContext.Provider value={ctx}>
       <div className="flex h-full min-h-0 flex-col">
-        <div className="flex h-11 shrink-0 items-center px-12 text-[13px] text-ink-soft">
+        <div className="flex h-11 shrink-0 items-center px-6 text-[13px] text-ink-soft lg:px-12">
           <span className="truncate">
             {workspace.name} / {project.icon} {project.title}
           </span>
         </div>
-        <div className={cn('flex min-h-0 flex-1 flex-col px-12', view === 'brief' && 'overflow-y-auto')}>
+        <div className={cn('flex min-h-0 flex-1 flex-col px-6 lg:px-12', view === 'brief' && 'overflow-y-auto')}>
           {/* Header halaman */}
           <div data-tour="project-header" className="pt-6">
             <Popover
@@ -98,7 +98,7 @@ export function ProjectPage() {
             >
               <div className="grid grid-cols-5 gap-1 p-1">
                 {EMOJIS.map((e) => (
-                  <button key={e} className="rounded p-1 text-2xl hover:bg-hover" onClick={() => updateProject.mutate({ id: projectId, icon: e })}>
+                  <button key={e} aria-label={`Pilih ikon ${e}`} className="rounded p-1 text-2xl hover:bg-hover" onClick={() => updateProject.mutate({ id: projectId, icon: e })}>
                     {e}
                   </button>
                 ))}
@@ -107,34 +107,40 @@ export function ProjectPage() {
             <input
               value={title}
               readOnly={!canEdit}
+              aria-label="Judul proyek"
               onChange={(e) => setTitle(e.target.value)}
               onBlur={() => title.trim() && title !== project.title && updateProject.mutate({ id: projectId, title: title.trim() })}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
               placeholder="Tanpa judul"
-              className="mb-3 w-full bg-transparent text-[40px] leading-tight font-bold outline-none placeholder:text-stone-300"
+              className="mb-3 w-full rounded bg-transparent text-3xl leading-tight font-bold outline-none placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-accent/40 lg:text-[40px]"
             />
           </div>
 
           {/* Tab view + aksi */}
-          <div className="flex items-center gap-1 border-b border-line">
+          <div className="flex flex-wrap items-center gap-x-1 border-b border-line">
             <div data-tour="views" className="flex items-center gap-1">
               {VIEWS.map(({ key, label, icon: Icon }) => (
                 <button
                   key={key}
                   onClick={() => setParam('view', key)}
-                  className={cn('-mb-px inline-flex items-center gap-1.5 border-b-2 px-2 py-2 text-[14px]', view === key ? 'border-ink text-ink' : 'border-transparent text-ink-soft hover:text-ink')}
+                  aria-current={view === key ? 'page' : undefined}
+                  className={cn('-mb-px inline-flex items-center gap-1.5 border-b-2 px-2 py-2 text-[14px] transition-colors', view === key ? 'border-ink font-medium text-ink' : 'border-transparent text-ink-soft hover:border-line-strong hover:text-ink')}
                 >
                   <Icon size={15} /> {label}
                 </button>
               ))}
             </div>
             {view !== 'brief' && (
-              <div data-tour="toolbar" className="ml-auto flex items-center gap-1 pb-1">
+              <div data-tour="toolbar" className="ml-auto flex items-center gap-1 py-1">
                 <div className="flex items-center gap-1 rounded px-1.5 text-ink-faint focus-within:bg-hover">
-                  <Search size={14} />
-                  <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari…" className="w-28 bg-transparent py-1 text-[13px] text-ink outline-none focus:w-40" />
+                  <Search size={14} aria-hidden="true" />
+                  <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari…" aria-label="Cari task" className="w-28 bg-transparent py-1 text-[13px] text-ink outline-none focus:w-40 motion-safe:transition-[width]" />
                 </div>
-                <button onClick={() => setMine(!mine)} className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-[13px] text-ink-soft hover:bg-hover', mine && 'bg-sky-50 text-accent')}>
+                <button
+                  onClick={() => setMine(!mine)}
+                  aria-pressed={mine}
+                  className={cn('inline-flex items-center gap-1 rounded px-2 py-1 text-[13px] transition-colors hover:bg-hover', mine ? 'bg-sky-50 text-accent' : 'text-ink-soft')}
+                >
                   <UserCheck size={14} /> Milik saya
                 </button>
                 {canEdit && (
@@ -168,7 +174,7 @@ export function ProjectPage() {
                 </div>
               </div>
             )}
-            {view !== 'brief' && !tasks && <FullPageSpinner />}
+            {view !== 'brief' && !tasks && <ListSkeleton />}
             {view === 'table' && tasks && <TableView tasks={filtered} />}
             {view === 'board' && tasks && <BoardView tasks={filtered} />}
             {view === 'timeline' && tasks && <TimelineView tasks={filtered} />}
