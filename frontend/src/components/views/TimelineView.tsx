@@ -1,20 +1,21 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Bot, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
-import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as RPointerEvent } from 'react';
+import { Bot, ChevronRight } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as RPointerEvent } from 'react';
+import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { useReschedule } from '../../hooks/queries';
 import { ApiError, errorMessage } from '../../lib/api';
-import { addDays, dayOfWeek, diffDays, formatMonth, formatRange, formatShort, today } from '../../lib/dates';
+import { addDays, diffDays, formatRange } from '../../lib/dates';
 import { useQueryClient } from '@tanstack/react-query';
 import { qk } from '../../lib/query-client';
 import type { Task } from '../../lib/types';
-import { useUi } from '../../lib/ui-store';
 import { cn } from '../../lib/utils';
 import { DateEditor } from '../task/property-editors';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
 import { StatusChip } from '../ui/misc';
 import { barGeometry, buildRows, timelineRange } from './timeline-model';
+import { DAY_W, DEFAULT_ZOOM, ZOOMS, ZOOM_LABEL, anchorScrollLeft, buildHeader, gridBackground, jakartaNow, nowX, parseZoom, visibleDayWindow, withMinSpan, type TimelineZoom } from './timeline-scale';
 import { useView } from './view-context';
 
 const LEFT_W = 300;
@@ -41,23 +42,85 @@ interface Pending {
   descendants: number;
 }
 
+/** Jam sekarang (Asia/Jakarta), diperbarui tepat di pergantian menit agar garis "sekarang" bergerak. */
+function useNow(): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      timer = setTimeout(() => {
+        setNow(new Date());
+        schedule();
+      }, 60_000 - (Date.now() % 60_000) + 50);
+    };
+    schedule();
+    return () => clearTimeout(timer);
+  }, []);
+  return now;
+}
+
+const scrollBehavior = (): ScrollBehavior => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
+
 /** Timeline/Gantt custom (keputusan D2): geser bar, tarik tepi untuk durasi, milestone, cascade reschedule. */
 export function TimelineView({ tasks }: { tasks: Task[] }) {
   const { projectId, canEdit, openTask } = useView();
   const qc = useQueryClient();
-  const { zoom, setZoom } = useUi();
-  const dayW = zoom === 'day' ? 36 : 14;
+  const [params, setParams] = useSearchParams();
+  const zoom = parseZoom(params.get('zoom'));
+  const setZoom = (z: TimelineZoom) =>
+    setParams(
+      (p) => {
+        if (z === DEFAULT_ZOOM) p.delete('zoom');
+        else p.set('zoom', z);
+        return p;
+      },
+      { replace: true },
+    );
+  const dayW = DAY_W[zoom];
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [drag, setDrag] = useState<DragState | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [win, setWin] = useState<{ from: number; to: number } | null>(null);
   const reschedule = useReschedule(projectId);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const now = jakartaNow(useNow());
 
   const { rows, unscheduled } = useMemo(() => buildRows(tasks, collapsed), [tasks, collapsed]);
-  const range = useMemo(() => timelineRange(tasks), [tasks]);
+  const range = useMemo(() => withMinSpan(timelineRange(tasks), zoom), [tasks, zoom]);
   const totalW = range.days * dayW;
-  const todayX = diffDays(range.start, today()) * dayW;
+  const todayX = diffDays(range.start, now.date) * dayW;
+  const nowLineX = nowX(zoom, range.start, now, dayW);
   const virt = useVirtualizer({ count: rows.length, getScrollElement: () => scrollRef.current, estimateSize: () => ROW_H, overscan: 10 });
+
+  // Header zoom jam sangat lebar (24 sel/hari): render hanya hari yang terlihat
+  const syncWindow = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const next = zoom === 'hour' ? visibleDayWindow(el.scrollLeft, el.clientWidth - LEFT_W, dayW, range.days) : null;
+    setWin((cur) => (cur?.from === next?.from && cur?.to === next?.to ? cur : next));
+  }, [zoom, dayW, range.days]);
+
+  const prevDayW = useRef(dayW);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (el && prevDayW.current !== dayW) {
+      el.scrollTo({ left: anchorScrollLeft(el.scrollLeft, el.clientWidth - LEFT_W, prevDayW.current, dayW), behavior: 'instant' });
+      prevDayW.current = dayW;
+    }
+    syncWindow();
+  }, [dayW, syncWindow]);
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (zoom === 'hour' && el) el.scrollTo({ left: Math.max(0, nowLineX - (el.clientWidth - LEFT_W) / 3), behavior: 'instant' });
+    // Hanya saat pertama tampil dengan ?zoom=hour; perubahan zoom selanjutnya memakai anchor di atas
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('resize', syncWindow);
+    return () => window.removeEventListener('resize', syncWindow);
+  }, [syncWindow]);
 
   const scheduledDescendants = (id: string) => {
     const kids = new Map<string, Task[]>();
@@ -133,75 +196,91 @@ export function TimelineView({ tasks }: { tasks: Task[] }) {
     requestChange(task, s, en);
   };
 
-  const months = useMemo(() => {
-    const out: { label: string; left: number; width: number }[] = [];
-    let i = 0;
-    while (i < range.days) {
-      const d = addDays(range.start, i);
-      const day = Number(d.slice(8));
-      const daysInMonth = new Date(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)), 0)).getUTCDate();
-      const span = Math.min(daysInMonth - day + 1, range.days - i);
-      out.push({ label: formatMonth(d), left: i * dayW, width: span * dayW });
-      i += span;
-    }
-    return out;
-  }, [range, dayW]);
+  const header = useMemo(() => buildHeader(zoom, range.start, range.days, dayW, now.date, win), [zoom, range, dayW, now.date, win]);
+  const gridBg = useMemo(() => gridBackground(zoom, range.start, dayW), [zoom, range.start, dayW]);
 
-  // Shading akhir pekan via background gradient (murah untuk ratusan hari)
-  const satOffset = ((6 - dayOfWeek(range.start) + 7) % 7) * dayW;
-  const gridBg = {
-    backgroundImage: `repeating-linear-gradient(90deg, transparent 0, transparent ${satOffset}px, rgba(55,53,47,0.035) ${satOffset}px, rgba(55,53,47,0.035) ${satOffset + 2 * dayW}px, transparent ${satOffset + 2 * dayW}px, transparent ${satOffset + 7 * dayW}px)${
-      zoom === 'day' ? `, repeating-linear-gradient(90deg, transparent 0, transparent ${dayW - 1}px, rgba(55,53,47,0.06) ${dayW - 1}px, rgba(55,53,47,0.06) ${dayW}px)` : ''
-    }`,
+  const scrollToToday = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const target = zoom === 'hour' ? nowLineX - (el.clientWidth - LEFT_W) / 3 : todayX - 200;
+    el.scrollTo({ left: Math.max(0, target), behavior: scrollBehavior() });
   };
 
-  const scrollToToday = () => scrollRef.current?.scrollTo({ left: Math.max(0, todayX - 200), behavior: 'smooth' });
+  const nowLabel = `${String(Math.floor(now.minutes / 60)).padStart(2, '0')}:${String(now.minutes % 60).padStart(2, '0')}`;
+  const nowVisible = nowLineX >= 0 && nowLineX <= totalW;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-2 flex items-center gap-1">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <Button size="sm" variant="outline" onClick={scrollToToday}>
-          Hari ini
+          {zoom === 'hour' ? 'Sekarang' : 'Hari ini'}
         </Button>
-        <div className="ml-auto flex items-center rounded-md border border-line">
-          <button onClick={() => setZoom('day')} className={cn('inline-flex items-center gap-1 px-2 py-1 text-[12px]', zoom === 'day' ? 'bg-hover text-ink' : 'text-ink-soft')}>
-            <ZoomIn size={12} /> Hari
-          </button>
-          <button onClick={() => setZoom('week')} className={cn('inline-flex items-center gap-1 px-2 py-1 text-[12px]', zoom === 'week' ? 'bg-hover text-ink' : 'text-ink-soft')}>
-            <ZoomOut size={12} /> Minggu
-          </button>
+        {zoom === 'hour' && (
+          <span className="text-[12px] text-ink-soft">
+            <span className="font-medium text-red-600">{nowLabel}</span> · Task hanya punya tanggal, jadi bar digambar penuh 00:00–24:00 per hari.
+          </span>
+        )}
+        <div role="group" aria-label="Level zoom timeline" className="ml-auto flex items-center gap-0.5 rounded-md border border-line-strong p-0.5">
+          {ZOOMS.map((z) => (
+            <button
+              key={z}
+              type="button"
+              aria-pressed={zoom === z}
+              onClick={() => setZoom(z)}
+              className={cn('rounded px-2.5 py-1 text-[12px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-accent', zoom === z ? 'bg-ink text-white' : 'text-ink-soft hover:bg-hover')}
+            >
+              {ZOOM_LABEL[z]}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto rounded-md border border-line select-none">
+      <div
+        ref={scrollRef}
+        onScroll={syncWindow}
+        role="region"
+        aria-label="Timeline project"
+        tabIndex={0}
+        className="relative min-h-0 flex-1 overflow-auto overscroll-x-contain rounded-md border border-line select-none focus-visible:outline-2 focus-visible:outline-accent motion-safe:scroll-smooth"
+      >
         <div style={{ width: LEFT_W + totalW }} className="relative">
           {/* Header */}
           <div className="sticky top-0 z-20 flex bg-white" style={{ height: 48 }}>
-            <div className="sticky left-0 z-30 flex items-end border-r border-b border-line bg-white px-3 pb-1.5 text-[12px] text-ink-soft" style={{ width: LEFT_W }}>
+            <div className="sticky left-0 z-30 flex items-end border-r border-b border-line bg-white px-3 pb-1.5 text-[12px] font-medium text-ink-soft" style={{ width: LEFT_W }}>
               Task ({rows.length})
             </div>
             <div className="relative border-b border-line" style={{ width: totalW }}>
-              {months.map((m) => (
-                <div key={m.left} className="absolute top-0 h-6 truncate border-l border-line px-2 pt-1 text-[12px] font-medium" style={{ left: m.left, width: m.width }}>
-                  {m.label}
+              {header.top.map((c) => (
+                <div key={c.key} className={cn('absolute top-0 h-6 overflow-clip border-l border-line px-2 pt-1 text-[12px] font-medium whitespace-nowrap', c.today && 'text-red-600')} style={{ left: c.left, width: c.width }}>
+                  <span className="sticky inline-block" style={{ left: LEFT_W + 8 }}>
+                    {c.label}
+                  </span>
                 </div>
               ))}
-              {Array.from({ length: range.days }, (_, i) => {
-                const d = addDays(range.start, i);
-                if (zoom === 'week' && dayOfWeek(d) !== 1) return null;
-                return (
-                  <div key={d} className={cn('absolute top-6 text-center text-[11px]', d === today() ? 'font-semibold text-red-500' : 'text-ink-faint')} style={{ left: i * dayW, width: zoom === 'day' ? dayW : 7 * dayW }}>
-                    {zoom === 'day' ? Number(d.slice(8)) : formatShort(d)}
-                  </div>
-                );
-              })}
+              {header.bottom.map((c) => (
+                <div
+                  key={c.key}
+                  className={cn(
+                    'absolute top-6 h-6 text-center text-[11px] leading-6',
+                    zoom !== 'day' && 'border-l border-line',
+                    c.weekend && 'bg-stone-100/80',
+                    c.today ? 'bg-red-50 font-semibold text-red-600' : 'text-ink-faint',
+                  )}
+                  style={{ left: c.left, width: c.width }}
+                >
+                  {c.label}
+                </div>
+              ))}
+              {zoom === 'hour' && nowVisible && <div title={`Sekarang ${nowLabel}`} className="absolute top-[42px] z-10 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-red-600" style={{ left: nowLineX }} />}
             </div>
           </div>
+
 
           {/* Rows */}
           <div style={{ height: Math.max(virt.getTotalSize(), 120), position: 'relative' }}>
             <div className="absolute top-0 bottom-0" style={{ left: LEFT_W, width: totalW, ...gridBg }} />
-            {todayX >= 0 && <div className="absolute top-0 bottom-0 z-10 w-px bg-red-400" style={{ left: LEFT_W + todayX + dayW / 2 }} />}
+            {zoom !== 'month' && todayX >= 0 && todayX < totalW && <div className="absolute top-0 bottom-0 bg-sky-500/[0.07]" style={{ left: LEFT_W + todayX, width: dayW }} />}
+            {nowVisible && <div className="absolute top-0 bottom-0 z-10 w-px bg-red-500" style={{ left: LEFT_W + nowLineX }} />}
             {rows.length === 0 && (
               <div className="absolute top-10 text-[13px] text-ink-faint" style={{ left: LEFT_W + 24 }}>
                 Belum ada task bertanggal. Atur tanggal dari panel "Belum dijadwalkan" di bawah.
