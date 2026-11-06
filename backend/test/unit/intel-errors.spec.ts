@@ -24,6 +24,15 @@ describe('mapIntelMcpError', () => {
     expect(mapped.code).toBe(code === 'INTERNAL' ? 'MCP_ERROR' : code);
   });
 
+  it('CONFLICT dari MCP (konfigurasi belum lengkap) menjadi 409 dengan petunjuk, tanpa detail upstream', () => {
+    const mapped = mapIntelMcpError(new McpCallError('CONFLICT', 'LLM_GATEWAY_ADMIN_KEY=lgw_secret', false));
+
+    expect(mapped.code).toBe('BUSINESS_RULE_VIOLATION');
+    expect(mapped.getStatus()).toBe(409);
+    expect(mapped.message).toMatch(/LLM_GATEWAY_ADMIN_KEY/);
+    expect(mapped.message).not.toContain('lgw_secret');
+  });
+
   it('kuota Gateway & output LLM tidak valid punya pesan yang bisa ditindaklanjuti (tanpa detail upstream)', () => {
     const quota = mapIntelMcpError(new McpCallError('BUDGET_EXCEEDED', 'Kuota project di LLM Gateway habis', false));
     expect(quota.code).toBe('LLM_QUOTA_EXCEEDED');

@@ -19,6 +19,7 @@ export type IntelToolName =
   | 'intel_kb_projection'
   | 'intel_items'
   | 'intel_llm_status'
+  | 'intel_llm_key_rotate'
   | 'intel_mission_plan'
   | 'intel_browser_profiles'
   | 'intel_browser_profile_create'
