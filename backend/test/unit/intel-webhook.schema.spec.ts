@@ -48,4 +48,17 @@ describe('intel webhook schemas', () => {
     expect(webSourceSchema.safeParse({ type: 'web', mode: 'scrape', urls: ['http://127.0.0.1/admin'] }).success).toBe(false);
     expect(webSourceSchema.safeParse({ type: 'web', mode: 'scrape', urls: ['https://example.com/report'] }).success).toBe(true);
   });
+
+  it.each([
+    'http://169.254.169.254/latest/meta-data/', // metadata cloud
+    'http://localhost:3000/',
+    'http://10.0.0.5/',
+    'http://192.168.1.1/',
+    'http://[::1]/',
+    'http://user:pw@example.com/',
+    'file:///etc/passwd',
+    'javascript:alert(1)',
+  ])('M3_TASK_006 §D: SSRF %s ditolak', (url) => {
+    expect(webSourceSchema.safeParse({ type: 'web', mode: 'scrape', urls: [url] }).success).toBe(false);
+  });
 });

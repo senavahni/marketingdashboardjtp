@@ -3,7 +3,7 @@
 **Status:** Done (5 Nov 2026).
 
 **Implementasi**
-- **MCP:** `services/intel/mission_plan.py` + tool `intel_mission_plan` (toolset `intel`), prompt `mission_plan.v1`, purpose LLM `mission_plan` (smart, 8.000 token, `reasoning_effort=low`), atribusi `X-Caller-Task: mission:<id>`.
+- **MCP:** `services/intel/mission_plan.py` + tool `intel_mission_plan` (toolset `intel`), prompt `mission_plan.v1`, purpose LLM `mission_plan` (smart, 8.000 token, `reasoning_effort=minimal; 6 Nov diturunkan dari low karena gpt-5 melewati timeout 120 s`), atribusi `X-Caller-Task: mission:<id>`.
 - **Dashboard backend:** tabel `agent_missions` (migrasi `20261105000000_m3_missions`), `MissionService`, endpoint misi, sinkron di `IntelEventService`, pemulihan di sweeper Intel.
 - **Frontend:** kartu **Masukkan ke Penjadwalan** di langkah **Agent** wizard, kartu **Jadwal** + panel tinjauan di detail job.
 

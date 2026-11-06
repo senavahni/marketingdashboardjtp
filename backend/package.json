@@ -25,7 +25,8 @@
     "db:seed:large": "node dist/database/seeds/seed-large.js",
     "db:seed:dummy": "node dist/database/seeds/seed-dummy.js",
     "db:setup": "npm run build && node dist/scripts/create-database.js && prisma migrate deploy && node dist/database/seeds/seed.js",
-    "mcp:send-event": "node dist/scripts/send-mcp-event.js"
+    "mcp:send-event": "node dist/scripts/send-mcp-event.js",
+    "m3:smoke": "node dist/scripts/m3-smoke.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

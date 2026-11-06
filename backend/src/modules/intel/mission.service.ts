@@ -38,7 +38,8 @@ import {
   titleIndex,
 } from './mission.rules';
 
-const PLAN_TIMEOUT_MS = 200_000;
+// sedikit di atas batas tool MCP (360 s; planner bisa meminta ulang LLM sekali)
+const PLAN_TIMEOUT_MS = 380_000;
 const AI_PROJECT_ICON = '🤖';
 const PLANNING_STALE_MS = 10 * 60_000;
 const EXISTING_TASKS_CONTEXT = 100;
@@ -147,6 +148,7 @@ export class MissionService {
         approval_mode: p.schedule.approval_mode,
         execution_enabled: p.schedule.execution_enabled,
         max_runs: p.schedule.max_runs,
+        budget_usd: p.schedule.budget_usd,
         status: 'waiting_research',
         root_task_id: root.id,
         created_by: p.user.id,
@@ -230,6 +232,7 @@ export class MissionService {
         root_task_id: root.id,
         execution_enabled: input.execution_enabled,
         max_runs: input.max_runs,
+        budget_usd: input.budget_usd,
         created_by: p.user.id,
       },
     });
@@ -591,13 +594,21 @@ export class MissionService {
     return this.get(user, missionId);
   }
 
-  /** Lanjutkan eksekusi; opsional menambah kuota run (`extra_runs`) bila kuota sudah habis. */
-  async resume(user: AuthUser, missionId: string, extraRuns = 0) {
+  /** Lanjutkan eksekusi; opsional menambah kuota run (`extra_runs`) dan/atau budget USD (`extra_budget_usd`). */
+  async resume(user: AuthUser, missionId: string, extraRuns = 0, extraBudgetUsd = 0) {
     const mission = await this.findMission(missionId);
     await this.access.assertWorkspace(user.id, mission.workspace_id, 'member');
     this.assertStatus(mission, ['paused', 'scheduled', 'running']);
     const maxRuns = Math.min(MISSION_LIMITS.maxRuns, mission.max_runs + extraRuns);
-    await this.prisma.agent_missions.update({ where: { id: missionId }, data: { status: 'scheduled', execution_enabled: true, max_runs: maxRuns } });
+    const budget =
+      mission.budget_usd === null ? null : Math.min(MISSION_LIMITS.maxBudgetUsd, Math.round((mission.budget_usd + extraBudgetUsd) * 100) / 100);
+    if (budget !== null && budget <= mission.runs_cost_usd) {
+      throw Errors.validation(`Budget $${budget} belum melebihi biaya terpakai $${mission.runs_cost_usd.toFixed(4)}; tambah budget dulu`);
+    }
+    await this.prisma.agent_missions.update({
+      where: { id: missionId },
+      data: { status: 'scheduled', execution_enabled: true, max_runs: maxRuns, budget_usd: budget, error: Prisma.DbNull },
+    });
     void this.executor.tickMission(missionId);
     return this.get(user, missionId);
   }
@@ -649,6 +660,8 @@ export class MissionService {
       execution_enabled: m.execution_enabled,
       max_runs: m.max_runs,
       runs_dispatched: m.runs_dispatched,
+      budget_usd: m.budget_usd,
+      runs_cost_usd: m.runs_cost_usd,
       completed_at: m.completed_at,
       cost_usd: m.cost_usd,
       error: m.error,

@@ -1,6 +1,18 @@
 # Task: QA, Contract Test, E2E Stack Nyata & Rilis
 **ID:** M3_TASK_006
-**Status:** To Do
+**Status:** Done kecuali uji X 5.000 item (ditunda: butuh profil browser login X — kini bisa lewat Sumber & Koneksi → Login X). Diverifikasi 6 Nov 2026.
+
+**Ringkasan hasil**
+- **Lapisan test:** contract, unit, dan integrasi hijau.
+  - MCP: 536 lulus.
+  - Dashboard: Jest ±230 dan Vitest 91 lulus.
+- **E2E stack nyata:** `intel.stack.e2e.ts` 9/9 lulus (Web, OpenAI sungguhan). E2E stack tidak memakai Mock MCP. E2E deterministik melawan Mock MCP (`intel.e2e.ts`) tidak dibuat, karena suite stack sudah menutup UC-M3-01..07 dan Fase 013/014.
+- **Smoke check rilis:** `npm run m3:smoke` (backend) memeriksa tiga hal:
+  1. Dashboard `/health`.
+  2. MCP dengan `MCP_INTEL_API_KEY` hanya mengekspos tool `intel_*`.
+  3. Route LLM Gateway tersedia.
+
+  Hasil: 3/3 OK. Di mode dev, `dist` dikompilasi oleh `nest --watch`; di produksi jalankan `npm run build` lebih dulu.
 **Repo:** semua (`marketingdashboardjtp`, `mcp`, `llm-genai`)
 **Dependencies:** M3_TASK_000 – 005, 007 – 009
 **Estimasi:** 3 person-days
@@ -33,25 +45,37 @@ Membuktikan Modul 3 berjalan end-to-end di stack nyata (Dashboard + MCP + LLM Ga
 | E2E-M3-07 | Viewer | Bisa lihat & ekspor, tidak bisa buat/batal |
 
 ## C. Skenario kegagalan (wajib lulus)
-- [ ] Worker MCP dimatikan di tengah `collecting` → `WORKER_LOST` → UI **Gagal** + **Ulangi**.
-- [ ] LLM Gateway dimatikan saat `analyzing` → `LLM_UNAVAILABLE`, data koleksi tetap tersedia di tab Data mentah.
-- [ ] Key Gateway agent `analyst` dicabut (Gateway Admin API) → `LLM_KEY_INVALID`; halaman AI & Gateway menandai key.
-- [ ] Quota project Gateway diset sangat kecil → `LLM_QUOTA_EXCEEDED`.
-- [ ] Budget token agent diset kecil → `BUDGET_EXCEEDED` dengan hasil parsial.
-- [ ] Webhook palsu (tanpa/beda HMAC) → 401; event duplikat & `sequence` mundur diabaikan.
-- [ ] Job workspace lain via API Dashboard → 404; `intel_job_get` dengan `workspace_id` lain langsung ke MCP → `NOT_FOUND`.
-- [ ] MCP mati → wizard tidak bisa estimasi (502), modul lain Dashboard tetap jalan.
-- [ ] Data besar: job X 5.000 item → tabel raw data mulus, CSV < 15 s.
+- [x] **Worker hilang:** worker MCP mati di tengah `collecting` → `WORKER_LOST`. Diuji `test_jobs.py` (reaper) + `test_worker_lost_surfaces_on_intel_job` (rekonsiliasi job intel).
+- [x] **LLM mati saat `analyzing`:** → `LLM_UNAVAILABLE`, data koleksi tetap tersedia.
+  - **Diperbaiki 6 Nov:** sebelumnya item koleksi hilang bila LLM mati saat klasifikasi sentimen. Sekarang item disimpan tanpa label sebagai hasil parsial.
+  - Uji: `test_llm_down_during_sentiment_keeps_collected_items`.
+- [x] **Key agent dicabut:** → `LLM_KEY_INVALID` (`test_gateway_key_rejected_maps_to_llm_key_invalid`).
+- [x] **Kuota project Gateway habis:** → `LLM_QUOTA_EXCEEDED`.
+  - Dipetakan unit (`test_intel.py`).
+  - Terjadi nyata 5 Nov (batas $0,50/hari). Pesan UI misi kini "Kuota LLM Gateway habis…" (`intel-errors.spec.ts`).
+- [x] **Budget token kecil:** → `BUDGET_EXCEEDED` dengan hasil parsial (pemetaan unit + jalur hasil parsial pipeline).
+- [x] **Webhook palsu / ganda:**
+  - Tanpa atau beda HMAC → 401 (`crypto.util.spec.ts`).
+  - Event duplikat & `sequence` mundur diabaikan (`intel-event.service.spec.ts`).
+- [x] **Akses lintas workspace:** job workspace lain → 404/`NOT_FOUND` (MCP `test_intel.py`; Dashboard `assertWorkspace`).
+- [x] **MCP mati:** estimasi wizard → **502 `MCP_UNAVAILABLE`** "Layanan MCP tidak tersedia", sedangkan projects & daftar job tetap 200. Diuji stack nyata 6 Nov (server MCP dihentikan sementara).
+- [ ] **Data besar (job X 5.000 item):** tabel raw data mulus, CSV < 15 s — **ditunda** (menunggu login X).
 
 ## D. Keamanan
-- [ ] Grep CI di repo Dashboard: tidak ada `lgw_`, `sk-`, `OPENAI_API_KEY` (selain dokumen).
-- [ ] Respons semua endpoint `intel` dipindai: tidak ada key lengkap.
-- [ ] Penetration ringan: SSRF (`http://127.0.0.1`, `169.254.169.254`) ditolak Dashboard & MCP; XSS di teks post/ringkasan tidak tereksekusi.
+- [x] **Pemindaian secret:** tidak ada `lgw_`, `sk-`, atau `OPENAI_API_KEY` dalam source Dashboard. Diuji `backend/test/unit/secret-scan.spec.ts`, yang jalan di setiap `jest`. File ter-track juga sudah dipindai manual 6 Nov, dan `.env` tidak ter-track.
+- [x] **Redaksi key di respons:** key `lgw_` lengkap disensor di respons `intel` (`redactGatewayKeys`, `intel-agents.spec.ts` llmStatus).
+- [x] **SSRF:** target berikut ditolak skema Dashboard (`intel-webhook.schema.spec.ts`):
+  - `127.0.0.1`, `169.254.169.254`, `localhost`, `10.x`, `192.168.x`, `[::1]`;
+  - URL berkredensial, `file:`, `javascript:`.
+
+  MCP mengecek ulang setelah redirect (`ssrf_denied`).
+- [x] **XSS:** teks post/ringkasan dirender lewat `safe-markdown` (tes anti-XSS di `intel.test.ts`).
 
 ## E. Deployment / konfigurasi
-- [ ] `.env.example` Dashboard: `MCP_INTEL_API_KEY`. MCP: `MCP_SECRET_KEY`. Dokumentasi provisioning key (TASK_009).
-- [ ] `start-project(...).bat` tidak perlu diubah (port sama); tambahkan langkah cek di README `projects/`: `GET :8000/v1/models` dengan key `system`, `tools/list` MCP dengan `MCP_INTEL_API_KEY` hanya berisi `intel_*`.
-- [ ] Retensi data mentah ditangani MCP (`SOCIAL_RETENTION_DAYS`, `RAW_RETENTION_DAYS`); Dashboard hanya menampilkan `items_expire_at`.
+- [x] **Variabel lingkungan:** `.env.example` Dashboard memuat `MCP_INTEL_API_KEY` & `MCP_WEBHOOK_SECRET`; MCP memuat `MCP_SECRET_KEY`. Provisioning key ada di TASK_009 / docs MCP.
+- [x] **Cek pasca-start:** `start-project(...).bat` tidak diubah. Langkah cek setelah start diganti satu perintah, `cd backend && npm run m3:smoke`, yang mencakup `tools/list` intel-only dan route Gateway lewat MCP memakai key `system`.
+- [x] **Retensi data mentah:** ditangani MCP (`SOCIAL_RETENTION_DAYS=180`, `RAW_RETENTION_DAYS=14`); Dashboard menampilkan `items_expire_at`.
+- [x] **Migrasi:** setelah pull, jalankan `npx prisma migrate deploy` (backend). Migrasi Modul 3: `m3_intel`, `m3_missions`, `m3_mission_execution`, `m3_mission_budget`.
 
 ## Acceptance Criteria
 1. Semua lapisan test hijau; E2E stack nyata lulus minimal sekali dengan Web + X.

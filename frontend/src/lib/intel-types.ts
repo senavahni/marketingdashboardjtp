@@ -173,6 +173,9 @@ export type Mission = {
   execution_enabled: boolean;
   max_runs: number;
   runs_dispatched: number;
+  /** Budget biaya run agent (USD); null = tanpa batas USD. */
+  budget_usd: number | null;
+  runs_cost_usd: number;
   completed_at: string | null;
   progress?: MissionProgress | null;
 };

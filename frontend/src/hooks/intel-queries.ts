@@ -169,15 +169,22 @@ export function useMissionAction() {
       action,
       feedback,
       extraRuns,
+      extraBudgetUsd,
     }: {
       id: string;
       action: 'approve' | 'revise' | 'cancel' | 'retry' | 'pause' | 'resume';
       feedback?: string;
       extraRuns?: number;
+      extraBudgetUsd?: number;
     }) =>
       api<Mission>(`/missions/${id}/${action}`, {
         method: 'POST',
-        body: action === 'revise' ? { feedback } : action === 'resume' ? { extra_runs: extraRuns ?? 0 } : {},
+        body:
+          action === 'revise'
+            ? { feedback }
+            : action === 'resume'
+              ? { extra_runs: extraRuns ?? 0, extra_budget_usd: extraBudgetUsd ?? 0 }
+              : {},
       }),
     onSuccess: (mission) => {
       if (mission.intel_job_id) qc.setQueryData(intelKeys.mission(mission.intel_job_id), mission);

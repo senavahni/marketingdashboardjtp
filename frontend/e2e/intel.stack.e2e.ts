@@ -23,7 +23,7 @@ const tokens: Record<string, string> = {};
 const cleanup: string[] = [];
 /** Project milik AI yang dibuat E2E-M3-09 — dihapus di akhir. */
 const aiProjects: string[] = [];
-const PLAN_TIMEOUT_MS = 240_000;
+const PLAN_TIMEOUT_MS = 420_000; // planner ≤ 360 s (bisa meminta ulang LLM sekali)
 let jobId = '';
 
 async function login(p: Page, who: string): Promise<void> {

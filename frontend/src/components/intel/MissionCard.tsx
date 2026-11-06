@@ -96,6 +96,7 @@ export function MissionBody({ mission, canEdit }: { mission: Mission; canEdit: b
 
 const EXECUTION_STATES: MissionStatus[] = ['scheduled', 'running', 'paused', 'completed'];
 const EXTRA_RUNS = 5;
+const EXTRA_BUDGET_USD = 1;
 
 /** Fase B: progres eksekusi agent + jeda / lanjutkan / batalkan. */
 function ExecutionPanel({ mission, canEdit }: { mission: Mission; canEdit: boolean }) {
@@ -104,8 +105,13 @@ function ExecutionPanel({ mission, canEdit }: { mission: Mission; canEdit: boole
   const pct = p && p.total ? Math.round((p.done / p.total) * 100) : 0;
   const quotaLeft = mission.max_runs - mission.runs_dispatched;
   const active = mission.status === 'scheduled' || mission.status === 'running';
-  const run = (kind: 'pause' | 'resume' | 'cancel', ok: string, extraRuns = 0) =>
-    action.mutate({ id: mission.id, action: kind, extraRuns }, { onSuccess: () => toast.success(ok), onError: (e) => toast.error(errorMessage(e)) });
+  const budgetHit = mission.budget_usd !== null && mission.runs_cost_usd >= mission.budget_usd;
+  const run = (kind: 'pause' | 'resume' | 'cancel', ok: string, extraRuns = 0, extraBudgetUsd = 0) =>
+    action.mutate(
+      { id: mission.id, action: kind, extraRuns, extraBudgetUsd },
+      { onSuccess: () => toast.success(ok), onError: (e) => toast.error(errorMessage(e)) },
+    );
+  const resumeLabel = budgetHit ? `Tambah $${EXTRA_BUDGET_USD} budget & lanjutkan` : quotaLeft <= 0 ? `Tambah ${EXTRA_RUNS} run & lanjutkan` : 'Lanjutkan';
   return (
     <div className="mt-3 rounded-xl border border-line bg-[#FAFBFC] p-3">
       {p && (
@@ -127,12 +133,19 @@ function ExecutionPanel({ mission, canEdit }: { mission: Mission; canEdit: boole
           </div>
         </>
       )}
+      {mission.status === 'paused' && mission.error && (
+        <p role="alert" className="mt-2 rounded-lg bg-[#FFF4E5] px-3 py-1.5 text-[12px] text-[#9A5B00]">
+          {mission.error.message}
+        </p>
+      )}
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[12px] text-ink-soft">
         <span>
           {mission.execution_enabled ? (
             <>
               Kuota run agent: {mission.runs_dispatched}/{mission.max_runs}
-              {quotaLeft <= 0 && active && <b className="ml-1 text-[#9A5B00]">habis — tambah kuota untuk melanjutkan</b>}
+              {' · '}Biaya run {formatUsd(mission.runs_cost_usd)}
+              {mission.budget_usd !== null && <> dari budget {formatUsd(mission.budget_usd)}</>}
+              {quotaLeft <= 0 && active && <b className="ml-1 text-[#9A5B00]">kuota run habis — tambah untuk melanjutkan</b>}
             </>
           ) : (
             'Eksekusi agent nonaktif: agent hanya menyusun rencana.'
@@ -146,8 +159,12 @@ function ExecutionPanel({ mission, canEdit }: { mission: Mission; canEdit: boole
               </Button>
             )}
             {(mission.status === 'paused' || !mission.execution_enabled || quotaLeft <= 0) && (
-              <Button size="sm" disabled={action.isPending} onClick={() => run('resume', 'Agent melanjutkan misi', quotaLeft <= 0 ? EXTRA_RUNS : 0)}>
-                <Play size={13} /> {quotaLeft <= 0 ? `Tambah ${EXTRA_RUNS} run & lanjutkan` : 'Lanjutkan'}
+              <Button
+                size="sm"
+                disabled={action.isPending}
+                onClick={() => run('resume', 'Agent melanjutkan misi', quotaLeft <= 0 ? EXTRA_RUNS : 0, budgetHit ? EXTRA_BUDGET_USD : 0)}
+              >
+                <Play size={13} /> {resumeLabel}
               </Button>
             )}
             <Button size="sm" variant="ghost" disabled={action.isPending} onClick={() => confirm('Batalkan misi? Run agent yang berjalan dihentikan; task tetap ada.') && run('cancel', 'Misi dibatalkan')}>

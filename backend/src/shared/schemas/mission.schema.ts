@@ -12,6 +12,7 @@ export const MISSION_LIMITS = {
   maxRevisions: 3,
   maxRuns: 50,
   defaultRuns: 10,
+  maxBudgetUsd: 100,
 } as const;
 
 export const MISSION_STATUSES = [
@@ -101,6 +102,8 @@ export const intelScheduleInputSchema = z.strictObject({
   // Fase B (M3_TASK_014): agent mengerjakan task bertanda eksekutor agent
   execution_enabled: z.boolean().default(true),
   max_runs: z.number().int().min(0).max(MISSION_LIMITS.maxRuns).default(MISSION_LIMITS.defaultRuns),
+  // batas biaya run agent (USD); kosong = tanpa batas USD (tetap dibatasi kuota run & kuota Gateway)
+  budget_usd: z.number().positive().max(MISSION_LIMITS.maxBudgetUsd).nullable().default(null),
 });
 
 /** Form "Perintah ke Agent" (M3_TASK_014 Fase A). */
@@ -116,10 +119,13 @@ export const createMissionSchema = z.strictObject({
   // Fase B: agent mengerjakan task bertanda eksekutor agent; budget = jumlah run agent
   execution_enabled: z.boolean().default(true),
   max_runs: z.number().int().min(0).max(MISSION_LIMITS.maxRuns).default(MISSION_LIMITS.defaultRuns),
+  // batas biaya run agent (USD); kosong = tanpa batas USD (tetap dibatasi kuota run & kuota Gateway)
+  budget_usd: z.number().positive().max(MISSION_LIMITS.maxBudgetUsd).nullable().default(null),
 });
 
 export const missionResumeSchema = z.strictObject({
   extra_runs: z.number().int().min(0).max(MISSION_LIMITS.maxRuns).default(0),
+  extra_budget_usd: z.number().min(0).max(MISSION_LIMITS.maxBudgetUsd).default(0),
 });
 
 export type CreateMissionInput = z.infer<typeof createMissionSchema>;

@@ -16,7 +16,18 @@ const PLAN = missionPlanSchema.parse({
   ],
 });
 
-type Row = { id: string; parent_task_id: string; title: string; status: string; assignee_type: string | null; agent_status: string; start_date: Date; tags: string[] };
+type Row = {
+  id: string;
+  parent_task_id: string;
+  title: string;
+  status: string;
+  assignee_type: string | null;
+  agent_status: string;
+  start_date: Date;
+  end_date: Date;
+  tags: string[];
+};
+// end_date jauh di depan agar tidak memicu penjadwalan ulang di tes yang tidak membahasnya
 const row = (id: string, title: string, tags: string[], over: Partial<Row> = {}): Row => ({
   id,
   parent_task_id: 'root',
@@ -25,6 +36,7 @@ const row = (id: string, title: string, tags: string[], over: Partial<Row> = {})
   assignee_type: null,
   agent_status: 'idle',
   start_date: new Date('2026-11-01T00:00:00Z'),
+  end_date: new Date('2099-12-31T00:00:00Z'),
   tags,
   ...over,
 });
@@ -43,6 +55,10 @@ function harness(rows: Row[], mission: Record<string, unknown> = {}, activeRuns 
     execution_enabled: true,
     max_runs: 10,
     runs_dispatched: 0,
+    budget_usd: null as number | null,
+    runs_cost_usd: 0,
+    last_reschedule_on: null as Date | null,
+    approval_mode: 'auto',
     plan: PLAN,
     task_map: { t1: 'k1', t2: 'k2', t3: 'k3' },
     created_by: owner.id,
@@ -67,17 +83,30 @@ function harness(rows: Row[], mission: Record<string, unknown> = {}, activeRuns 
     tasks: {
       findMany: jest.fn(({ where }: { where: { parent_task_id: unknown } }) => Promise.resolve(where.parent_task_id === 'root' ? rows : [])),
       findUniqueOrThrow: jest.fn(({ where }: { where: { id: string } }) => Promise.resolve(rows.find((r) => r.id === where.id))),
-      findFirst: jest.fn().mockResolvedValue({ id: 'root', status: 'todo' }),
+      findFirst: jest.fn().mockResolvedValue({ id: 'root', status: 'todo', title: 'Misi: Kampanye', project_id: 'p1' }),
+      update: jest.fn().mockResolvedValue(undefined),
     },
-    agent_runs: { count: jest.fn().mockResolvedValue(activeRuns) },
+    agent_runs: { count: jest.fn().mockResolvedValue(activeRuns), findMany: jest.fn().mockResolvedValue([]) },
     agents: { findFirst: jest.fn(({ where }: { where: { mcp_agent_key: string } }) => Promise.resolve(where.mcp_agent_key === 'researcher' ? researcher : null)) },
     users: { findUnique: jest.fn().mockResolvedValue(owner) },
   };
   const tasks = { updateAs: jest.fn().mockResolvedValue(undefined) };
   const blocks = { applyAs: jest.fn().mockResolvedValue(undefined) };
   const runs = { cancelActive: jest.fn() };
-  const service = new MissionExecutorService(prisma as never, tasks as never, blocks as never, runs as never);
-  return { service, prisma, tasks, blocks };
+  const mcp = { call: jest.fn().mockResolvedValue({ runs: [], total_usd: 0 }) };
+  const comments = { createAs: jest.fn().mockResolvedValue(undefined) };
+  const notifications = { notify: jest.fn().mockResolvedValue(undefined) };
+  Object.assign(prisma, { tx: jest.fn((cb: (t: unknown) => Promise<unknown>) => cb({})) });
+  const service = new MissionExecutorService(
+    prisma as never,
+    tasks as never,
+    blocks as never,
+    runs as never,
+    mcp as never,
+    comments as never,
+    notifications as never,
+  );
+  return { service, prisma, tasks, blocks, mcp, comments, notifications };
 }
 
 describe('MissionExecutorService.tickMission', () => {
@@ -127,6 +156,50 @@ describe('MissionExecutorService.tickMission', () => {
     expect(await h.service.tickMission('m1')).toBe(0);
     expect(h.prisma.agent_missions.update).toHaveBeenCalledWith({ where: { id: 'm1' }, data: expect.objectContaining({ status: 'cancelled' }) });
     expect(h.tasks.updateAs).not.toHaveBeenCalled();
+  });
+
+  it('biaya run melewati budget USD → misi dijeda + notifikasi, tanpa run baru', async () => {
+    const h = harness(rows(), { budget_usd: 0.5 });
+    h.prisma.agent_runs.findMany.mockResolvedValue([{ id: 'r1' }, { id: 'r2' }]);
+    h.mcp.call.mockResolvedValue({ runs: [], total_usd: 0.62 });
+    expect(await h.service.tickMission('m1')).toBe(0);
+    expect(h.mcp.call).toHaveBeenCalledWith('intel_run_costs', { workspace_id: ws, run_ids: ['r1', 'r2'] }, expect.anything());
+    expect(h.prisma.agent_missions.update).toHaveBeenCalledWith({ where: { id: 'm1' }, data: { runs_cost_usd: 0.62 } });
+    expect(h.prisma.agent_missions.update).toHaveBeenCalledWith({ where: { id: 'm1' }, data: expect.objectContaining({ status: 'paused', error: expect.objectContaining({ code: 'BUDGET_REACHED' }) }) });
+    expect(h.notifications.notify).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ type: 'mission_budget_reached', recipients: [owner.id] }), expect.anything());
+    expect(h.tasks.updateAs).not.toHaveBeenCalled();
+  });
+
+  it('run gagal sekali → task dilepas & dikerjakan ulang; gagal 2× → dibiarkan untuk manusia', async () => {
+    const failedRow = () => row('k1', 'Riset kompetitor', ['misi', 'eksekutor:agent'], { agent_status: 'failed', assignee_type: 'agent' });
+    const once = harness([failedRow()]);
+    once.prisma.agent_runs.count.mockImplementation(({ where }: { where: { status: unknown } }) => Promise.resolve(where.status === 'failed' ? 1 : 0));
+    await once.service.tickMission('m1');
+    expect(once.tasks.updateAs.mock.calls[0][3]).toEqual({ assignee: null });
+    expect(once.prisma.tasks.update).toHaveBeenCalledWith({ where: { id: 'k1' }, data: { agent_status: 'idle' } });
+
+    const twice = harness([failedRow()]);
+    twice.prisma.agent_runs.count.mockImplementation(({ where }: { where: { status: unknown } }) => Promise.resolve(where.status === 'failed' ? 2 : 0));
+    await twice.service.tickMission('m1');
+    expect(twice.tasks.updateAs).not.toHaveBeenCalled();
+  });
+
+  it('task terlambat: mode auto → jadwal digeser + komentar; mode review → hanya usulan; sekali per hari', async () => {
+    const late = () => [row('k3', 'Approval manajer', ['misi', 'eksekutor:human'], { start_date: new Date('2026-01-01T00:00:00Z'), end_date: new Date('2026-01-02T00:00:00Z') })];
+    const auto = harness(late());
+    await auto.service.tickMission('m1');
+    const [, , , input] = auto.tasks.updateAs.mock.calls.find(([, , , i]) => 'start_date' in i)!;
+    expect(input.end_date > input.start_date).toBe(true); // durasi 2 hari dipertahankan
+    expect(auto.comments.createAs).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ content: expect.stringContaining('Jadwal disesuaikan otomatis') }), null);
+
+    const review = harness(late(), { approval_mode: 'review' });
+    await review.service.tickMission('m1');
+    expect(review.tasks.updateAs.mock.calls.some(([, , , i]) => 'start_date' in i)).toBe(false);
+    expect(review.comments.createAs).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ content: expect.stringContaining('Usulan penjadwalan ulang') }), null);
+
+    const done = harness(late(), { last_reschedule_on: new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`) });
+    await done.service.tickMission('m1');
+    expect(done.comments.createAs).not.toHaveBeenCalled();
   });
 
   it('progress menghitung task rencana & task agent', async () => {

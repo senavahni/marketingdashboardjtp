@@ -149,7 +149,22 @@ export function MissionFormDialog({ workspaceId, open, onOpenChange, onCreated }
               <span className="text-ink-faint">run (1 task = 1 run; bisa ditambah nanti)</span>
             </label>
           )}
+          {form.execute && (
+            <label className="mt-2 flex items-center gap-2 pl-6 text-[12px] text-ink-soft">
+              Budget maks
+              <span className="text-ink-faint">$</span>
+              <input
+                inputMode="decimal"
+                className={cn(inputClass, 'h-8 w-24')}
+                value={form.budgetUsd}
+                onChange={(e) => set({ budgetUsd: e.target.value })}
+                placeholder="mis. 2"
+              />
+              <span className="text-ink-faint">biaya LLM run agent; kosong = tanpa batas USD</span>
+            </label>
+          )}
           <FieldError message={errors.maxRuns} />
+          <FieldError message={errors.budgetUsd} />
         </div>
         <p className="text-[11px] text-ink-faint">
           Planner: agent dengan toolset task (default Agent_Strategist). Biaya planning ±$0,03–0,05; tiap run agent memakai budget token profil agent.

@@ -1,6 +1,31 @@
 # Task: Misi Agent — Perintah Langsung ke Agent (P1, bertahap)
 **ID:** M3_TASK_014
-**Status:** Fase A & Fase B Done (5 Nov 2026).
+**Status:** Fase A & Fase B Done (5 Nov 2026); sisa budget USD & penjadwalan ulang Done (6 Nov 2026).
+
+**Tambahan 6 Nov 2026**
+
+*Budget USD per misi*
+- **Sumber biaya:** tool MCP `intel_run_costs {workspace_id, run_ids}` menjumlahkan biaya LLM per run dari `mcp.llm_calls` (`cost_usd`, atau tarif per tier bila kosong), hanya untuk run milik workspace tsb.
+- **Pengecekan:** penjadwal menyimpan `runs_cost_usd`. Bila `budget_usd` (opsional, ≤ $100) tercapai, misi `paused` (`BUDGET_REACHED`) dan pembuatnya diberi notifikasi `mission_budget_reached`.
+- **Melanjutkan:** `POST /missions/:id/resume {extra_runs, extra_budget_usd}` wajib membuat budget > biaya terpakai.
+- **Form & UI:** form misi dan kartu Penjadwalan menerima `budget_usd`. UI menampilkan "Biaya run $x dari budget $y" dan tombol "Tambah $1 budget & lanjutkan".
+
+*Coba ulang run gagal*
+- Run agent yang gagal diulang sekali (task dilepas → dikerjakan lagi).
+- Setelah 2 kali gagal, task menunggu manusia.
+
+*Penjadwalan ulang deterministik* (sekali sehari per misi, `last_reschedule_on`; tanpa LLM)
+- **Aturan:** task `todo` yang lewat tenggat digeser ke hari ini dengan durasi tetap.
+  - Dependen digeser hanya bila dependensinya benar-benar digeser; tumpang-tindih bawaan rencana dibiarkan.
+  - Rentang task induk diperlebar menutup subtask.
+- **Mode auto:** jadwal diterapkan + komentar di task induk; notifikasi `mission_rescheduled` bila melewati akhir timeline.
+- **Mode review:** hanya komentar usulan + notifikasi.
+
+*Migrasi & test*
+- **Migrasi:** `20261106000000_m3_mission_budget`.
+- **Test:**
+  - Jest: `mission-reschedule.rules.spec.ts`, `mission-executor.service.spec.ts` (budget, retry, reschedule), `mission.service.spec.ts` (resume + budget).
+  - MCP: `test_run_costs_sum_per_run_scoped_to_workspace`.
 
 **Implementasi Fase B (berbeda dari rancangan bila disebut)**
 

@@ -192,7 +192,11 @@ describe('form Perintah ke Agent (M3_TASK_014 Fase A)', () => {
       approval_mode: 'auto',
       execution_enabled: true,
       max_runs: 10,
+      budget_usd: null,
     });
+    expect(missionFormToBody({ ...f, budgetUsd: '1,5' }).budget_usd).toBe(1.5);
+    expect(validateMissionForm({ ...f, budgetUsd: '0' }).budgetUsd).toMatch(/Budget/);
+    expect(validateMissionForm({ ...f, budgetUsd: '250' }).budgetUsd).toMatch(/Budget/);
     // tanpa eksekusi agent → tidak ada run
     expect(missionFormToBody({ ...f, execute: false })).toMatchObject({ execution_enabled: false, max_runs: 0 });
     expect(validateMissionForm({ ...f, maxRuns: 0 }).maxRuns).toBe('1–50 run');

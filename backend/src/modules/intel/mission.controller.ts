@@ -79,7 +79,7 @@ export class MissionController {
   @HttpCode(200)
   @ApiZodBody(missionResumeSchema)
   resume(@CurrentUser() user: AuthUser, @Param('id', UuidPipe) id: string, @Body(new ZodPipe(missionResumeSchema)) body: z.infer<typeof missionResumeSchema>) {
-    return this.missions.resume(user, id, body.extra_runs);
+    return this.missions.resume(user, id, body.extra_runs, body.extra_budget_usd);
   }
 
   @Post('missions/:id/cancel')

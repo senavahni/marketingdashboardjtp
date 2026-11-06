@@ -19,12 +19,16 @@ export interface MissionForm {
   /** Fase B: agent mengerjakan task bagiannya; `maxRuns` = budget jumlah run agent. */
   execute: boolean;
   maxRuns: number;
+  /** Budget biaya run agent (USD) sebagai teks input; kosong = tanpa batas USD. */
+  budgetUsd: string;
 }
+
+export const MISSION_MAX_BUDGET_USD = 100;
 
 export const MISSION_MAX_RUNS = 50;
 export const MISSION_DEFAULT_RUNS = 10;
 
-export type MissionFormErrors = Partial<Record<'title' | 'instruction' | 'expectedOutcome' | 'period' | 'maxRuns', string>>;
+export type MissionFormErrors = Partial<Record<'title' | 'instruction' | 'expectedOutcome' | 'period' | 'maxRuns' | 'budgetUsd', string>>;
 
 export type CreateMissionBody = {
   title: string;
@@ -35,7 +39,10 @@ export type CreateMissionBody = {
   approval_mode: 'auto' | 'review';
   execution_enabled: boolean;
   max_runs: number;
+  budget_usd: number | null;
 };
+
+const parseBudget = (raw: string): number | null => (raw.trim() ? Number(raw.replace(',', '.')) : null);
 
 export function emptyMissionForm(today = new Date()): MissionForm {
   return {
@@ -48,6 +55,7 @@ export function emptyMissionForm(today = new Date()): MissionForm {
     mode: 'auto',
     execute: true,
     maxRuns: MISSION_DEFAULT_RUNS,
+    budgetUsd: '',
   };
 }
 
@@ -66,6 +74,10 @@ export function validateMissionForm(f: MissionForm): MissionFormErrors {
   else if (end < start) e.period = 'Tanggal selesai tidak boleh sebelum tanggal mulai';
   else if ((end - start) / DAY_MS + 1 > MISSION_MAX_DAYS) e.period = `Timeline maksimal ${MISSION_MAX_DAYS} hari`;
   if (f.execute && !(Number.isInteger(f.maxRuns) && f.maxRuns >= 1 && f.maxRuns <= MISSION_MAX_RUNS)) e.maxRuns = `1–${MISSION_MAX_RUNS} run`;
+  const budget = parseBudget(f.budgetUsd);
+  if (f.execute && budget !== null && !(Number.isFinite(budget) && budget > 0 && budget <= MISSION_MAX_BUDGET_USD)) {
+    e.budgetUsd = `Budget 0,01–${MISSION_MAX_BUDGET_USD} USD atau kosongkan`;
+  }
   return e;
 }
 
@@ -80,5 +92,6 @@ export function missionFormToBody(f: MissionForm): CreateMissionBody {
     approval_mode: f.mode,
     execution_enabled: f.execute,
     max_runs: f.execute ? f.maxRuns : 0,
+    budget_usd: f.execute ? parseBudget(f.budgetUsd) : null,
   };
 }

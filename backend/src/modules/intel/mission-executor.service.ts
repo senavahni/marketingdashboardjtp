@@ -10,9 +10,22 @@ import { BlockOperation, BlocksService } from '../blocks/blocks.service';
 import { AgentRunsService } from '../agent-runs/agent-runs.service';
 import { ACTIVE_RUN_STATUS_LIST } from '../tasks/task.mapper';
 import { TasksService } from '../tasks/tasks.service';
-import { ExecTask, MAX_ACTIVE_RUNS_PER_MISSION, dependencyIds, pickRunnable, planComplete } from './mission.rules';
+import { z } from 'zod';
+import { CommentsService } from '../comments/comments.service';
+import { NotificationType, NotificationsService } from '../notifications/notifications.service';
+import { IntelMcpClient } from './intel-mcp-client.service';
+import { ExecTask, MAX_ACTIVE_RUNS_PER_MISSION, dependencyIds, pickRunnable, planComplete, rescheduleOverdue } from './mission.rules';
 
 const EXECUTING: mission_status[] = ['scheduled', 'running'];
+const MAX_RUN_ATTEMPTS = 2;
+const RUN_COSTS_MAX = 200;
+
+type ExecMission = agent_missions & { agent: { id: string; name: string; mcp_agent_key: string } };
+
+const runCostsSchema = z.object({
+  runs: z.array(z.object({ run_id: z.string(), llm_tokens: z.number().int(), usd: z.number() })),
+  total_usd: z.number(),
+});
 const CONTEXT_INSTRUCTION_CHARS = 800;
 const MAX_MISSIONS_PER_TICK = 50;
 
@@ -40,6 +53,9 @@ export class MissionExecutorService {
     private readonly tasks: TasksService,
     private readonly blocks: BlocksService,
     private readonly runs: AgentRunsService,
+    private readonly mcp: IntelMcpClient,
+    private readonly comments: CommentsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Satu putaran penjadwal untuk semua misi yang berjalan (dipanggil sweeper Intel). */
@@ -104,20 +120,24 @@ export class MissionExecutorService {
       });
       return 0;
     }
-    const tasks = await this.missionTasks(mission.root_task_id);
+    let tasks = await this.missionTasks(mission.root_task_id);
     if (planComplete(tasks)) {
       await this.complete(mission);
       return 0;
     }
+    if (await this.overBudget(mission, tasks)) return 0;
+    const parsed = missionPlanSchema.safeParse(mission.plan);
+    const taskMap = (mission.task_map ?? {}) as Record<string, string>;
+    const deps = parsed.success ? dependencyIds(parsed.data, taskMap) : new Map<string, string[]>();
+    const today = todayInTimezone(mission.workspace.timezone);
+    if (await this.retryFailed(mission, tasks)) tasks = await this.missionTasks(mission.root_task_id);
+    if (await this.rescheduleDaily(mission, tasks, deps, today)) tasks = await this.missionTasks(mission.root_task_id);
     const ids = tasks.map((t) => t.id);
     const active = ids.length
       ? await this.prisma.agent_runs.count({ where: { task_id: { in: ids }, status: { in: ACTIVE_RUN_STATUS_LIST } } })
       : 0;
     const slots = Math.min(MAX_ACTIVE_RUNS_PER_MISSION - active, mission.max_runs - mission.runs_dispatched);
-    const parsed = missionPlanSchema.safeParse(mission.plan);
-    const taskMap = (mission.task_map ?? {}) as Record<string, string>;
-    const deps = parsed.success ? dependencyIds(parsed.data, taskMap) : new Map<string, string[]>();
-    const picks = pickRunnable(tasks, deps, todayInTimezone(mission.workspace.timezone), slots);
+    const picks = pickRunnable(tasks, deps, today, slots);
     let dispatched = 0;
     for (const task of picks) {
       if (await this.dispatch(mission, task, tasks, deps, parsed.success ? parsed.data : null, taskMap)) dispatched += 1;
@@ -128,7 +148,7 @@ export class MissionExecutorService {
   }
 
   private async dispatch(
-    mission: agent_missions & { agent: { id: string; name: string; mcp_agent_key: string } },
+    mission: ExecMission,
     task: ExecTask,
     all: ExecTask[],
     deps: Map<string, string[]>,
@@ -157,6 +177,113 @@ export class MissionExecutorService {
     const fresh = await this.prisma.tasks.findUniqueOrThrow({ where: { id: task.id } });
     await this.tasks.updateAs(actor, fresh, mission.workspace_id, { assignee: { type: 'agent', id: agent.id } }, null);
     return true;
+  }
+
+  /**
+   * Perbarui biaya run agent misi (USD, dari MCP `intel_run_costs`). Bila melewati `budget_usd`,
+   * misi dijeda tanpa run baru dan pembuatnya diberi notifikasi. MCP tidak terjangkau → lanjut.
+   */
+  private async overBudget(mission: ExecMission, tasks: ExecTask[]): Promise<boolean> {
+    const ids = tasks.map((t) => t.id);
+    const runs = ids.length
+      ? await this.prisma.agent_runs.findMany({ where: { task_id: { in: ids }, trigger: 'assignment' }, select: { id: true }, take: RUN_COSTS_MAX })
+      : [];
+    if (!runs.length) return false;
+    let cost = mission.runs_cost_usd;
+    try {
+      const out = await this.mcp.call('intel_run_costs', { workspace_id: mission.workspace_id, run_ids: runs.map((r) => r.id) }, runCostsSchema);
+      cost = out.total_usd;
+      if (cost !== mission.runs_cost_usd) await this.prisma.agent_missions.update({ where: { id: mission.id }, data: { runs_cost_usd: cost } });
+    } catch (error) {
+      this.logger.debug({ mission_id: mission.id, error: (error as Error).message }, 'Biaya run misi belum dapat diperbarui');
+    }
+    if (mission.budget_usd === null || cost < mission.budget_usd) return false;
+    await this.prisma.agent_missions.update({
+      where: { id: mission.id },
+      data: { status: 'paused', error: { code: 'BUDGET_REACHED', message: `Budget misi $${mission.budget_usd} tercapai ($${cost.toFixed(4)})` } },
+    });
+    await this.notify(mission, 'mission_budget_reached', 'Budget misi agent tercapai — misi dijeda', `${mission.title}: $${cost.toFixed(4)} dari $${mission.budget_usd}`);
+    return true;
+  }
+
+  /** Run agent gagal diulang sekali (task dilepas dari agent); setelah 2× gagal menunggu manusia. */
+  private async retryFailed(mission: ExecMission, tasks: ExecTask[]): Promise<boolean> {
+    const failed = tasks.filter((t) => t.agent_status === 'failed' && t.status !== 'done' && t.tags.includes('eksekutor:agent'));
+    let reset = false;
+    for (const task of failed) {
+      const attempts = await this.prisma.agent_runs.count({ where: { task_id: task.id, trigger: 'assignment', status: 'failed' } });
+      if (attempts >= MAX_RUN_ATTEMPTS) continue;
+      const fresh = await this.prisma.tasks.findUniqueOrThrow({ where: { id: task.id } });
+      await this.tasks.updateAs(this.planner(mission), fresh, mission.workspace_id, { assignee: null }, null);
+      await this.prisma.tasks.update({ where: { id: task.id }, data: { agent_status: 'idle' } });
+      reset = true;
+    }
+    return reset;
+  }
+
+  /**
+   * Sekali sehari per misi: geser task `todo` yang terlambat (+ dependen). Mode auto menerapkan;
+   * mode review hanya memberi komentar usulan di task induk + notifikasi.
+   */
+  private async rescheduleDaily(mission: ExecMission, tasks: ExecTask[], deps: Map<string, string[]>, today: string): Promise<boolean> {
+    if (toDateString(mission.last_reschedule_on) === today) return false;
+    await this.prisma.agent_missions.update({ where: { id: mission.id }, data: { last_reschedule_on: new Date(`${today}T00:00:00.000Z`) } });
+    const plan = rescheduleOverdue(tasks, deps, today, toDateString(mission.end_date)!);
+    if (!plan.changes.length) return false;
+    const actor = this.planner(mission);
+    const title = (id: string) => tasks.find((t) => t.id === id)?.title ?? id;
+    const lines = plan.changes.map((c) => `• ${title(c.id)}: ${c.start_date} s/d ${c.end_date}`);
+    const overrun = plan.overrun ? `\nPerhatian: sebagian task kini melewati akhir timeline misi (${toDateString(mission.end_date)}).` : '';
+    if (mission.approval_mode === 'review') {
+      await this.commentRoot(mission, actor, `Usulan penjadwalan ulang (task terlambat):\n${lines.join('\n')}${overrun}`);
+      await this.notify(mission, 'mission_rescheduled', 'Ada task misi yang terlambat — usulan jadwal baru', mission.title);
+      return false;
+    }
+    for (const c of plan.changes) {
+      const fresh = await this.prisma.tasks.findUniqueOrThrow({ where: { id: c.id } });
+      await this.tasks.updateAs(actor, fresh, mission.workspace_id, { start_date: c.start_date, end_date: c.end_date }, null);
+    }
+    await this.commentRoot(mission, actor, `Jadwal disesuaikan otomatis karena ada task terlambat:\n${lines.join('\n')}${overrun}`);
+    if (plan.overrun) await this.notify(mission, 'mission_rescheduled', 'Misi agent melewati timeline', mission.title);
+    return true;
+  }
+
+  private planner(mission: ExecMission): Actor {
+    return { type: 'agent', id: mission.agent.id, name: mission.agent.name };
+  }
+
+  private async commentRoot(mission: ExecMission, actor: Actor, content: string) {
+    if (!mission.root_task_id) return;
+    const root = await this.prisma.tasks.findFirst({ where: { id: mission.root_task_id, deleted_at: null }, select: { id: true, title: true, project_id: true } });
+    if (!root) return;
+    await this.comments.createAs(
+      actor,
+      { workspaceId: mission.workspace_id, projectId: root.project_id, taskId: root.id, title: root.title, role: 'member' },
+      { entity_type: 'task', entity_id: root.id, content: content.slice(0, 9_000), mentions: [] },
+      null,
+    );
+  }
+
+  private async notify(mission: ExecMission, type: NotificationType, title: string, body: string) {
+    const effects = new AfterCommit();
+    await this.prisma.tx((tx) =>
+      this.notifications.notify(
+        tx,
+        {
+          recipients: [mission.created_by],
+          workspaceId: mission.workspace_id,
+          type,
+          title,
+          body,
+          projectId: mission.project_id,
+          entityType: mission.root_task_id ? 'task' : null,
+          entityId: mission.root_task_id,
+          actor: { type: 'system', id: null },
+        },
+        effects,
+      ),
+    );
+    await effects.run();
   }
 
   /** Run Modul 2 membaca blok task: sisipkan konteks misi sekali sebelum dispatch. */
@@ -196,12 +323,22 @@ export class MissionExecutorService {
 
   /** Turunan task induk misi (anak + cucu; MAX_TASK_DEPTH = 3). */
   private async missionTasks(rootId: string): Promise<ExecTask[]> {
-    const select = { id: true, parent_task_id: true, title: true, status: true, assignee_type: true, agent_status: true, start_date: true, tags: true } as const;
+    const select = {
+      id: true,
+      parent_task_id: true,
+      title: true,
+      status: true,
+      assignee_type: true,
+      agent_status: true,
+      start_date: true,
+      end_date: true,
+      tags: true,
+    } as const;
     const children = await this.prisma.tasks.findMany({ where: { parent_task_id: rootId, deleted_at: null }, select });
     const grandchildren = children.length
       ? await this.prisma.tasks.findMany({ where: { parent_task_id: { in: children.map((c) => c.id) }, deleted_at: null }, select })
       : [];
-    return [...children, ...grandchildren].map((t) => ({ ...t, start_date: toDateString(t.start_date) }));
+    return [...children, ...grandchildren].map((t) => ({ ...t, start_date: toDateString(t.start_date), end_date: toDateString(t.end_date) }));
   }
 
   /** Batalkan run aktif semua task misi (misi dibatalkan). */

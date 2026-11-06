@@ -52,7 +52,75 @@ export interface ExecTask {
   assignee_type: string | null;
   agent_status: string;
   start_date: string | null;
+  end_date: string | null;
   tags: string[];
+}
+
+const DAY_MS = 86_400_000;
+
+/** Tanggal ISO (YYYY-MM-DD) + n hari. */
+export function addDays(iso: string, n: number): string {
+  return new Date(Date.parse(`${iso}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
+}
+
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
+
+export interface Reschedule {
+  changes: { id: string; start_date: string; end_date: string }[];
+  /** Ada task yang kini berakhir setelah timeline misi. */
+  overrun: boolean;
+}
+
+/**
+ * Penjadwalan ulang deterministik (tanpa LLM): task rencana `todo` yang sudah lewat tenggat digeser
+ * ke hari ini (durasi tetap); dependen digeser agar mulai ≥ selesainya dependensi (hari yang sama
+ * boleh); rentang task induk diperlebar menutup subtask-nya. Task berjalan/selesai tidak diubah.
+ */
+export function rescheduleOverdue(tasks: ExecTask[], deps: Map<string, string[]>, today: string, missionEnd: string): Reschedule {
+  const dates = new Map(tasks.map((t) => [t.id, { start: t.start_date, end: t.end_date }]));
+  const movable = (t: ExecTask) => isPlanTask(t) && t.status === 'todo' && t.start_date !== null && t.end_date !== null;
+  const moved = new Set<string>();
+  const shift = (id: string, newStart: string) => {
+    const d = dates.get(id)!;
+    const len = daysBetween(d.start!, d.end!);
+    dates.set(id, { start: newStart, end: addDays(newStart, len) });
+    moved.add(id);
+  };
+  for (const t of tasks) if (movable(t) && t.end_date! < today) shift(t.id, today);
+  // propagasi hanya dari dependensi yang benar-benar digeser (tumpang-tindih bawaan rencana dibiarkan)
+  for (let pass = 0; pass < tasks.length; pass++) {
+    let changed = false;
+    for (const t of tasks.filter(movable)) {
+      const latest = (deps.get(t.id) ?? [])
+        .filter((d) => moved.has(d))
+        .map((d) => dates.get(d)?.end)
+        .filter((x): x is string => !!x)
+        .sort()
+        .pop();
+      const cur = dates.get(t.id)!;
+      if (latest && cur.start! < latest) {
+        shift(t.id, latest);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  // induk menutup subtask
+  for (const parent of tasks.filter(isPlanTask)) {
+    const kids = tasks.filter((c) => c.parent_task_id === parent.id).map((c) => dates.get(c.id)!);
+    const cur = dates.get(parent.id)!;
+    if (!kids.length || !cur.start || !cur.end) continue;
+    const start = [cur.start, ...kids.map((k) => k.start!).filter(Boolean)].sort()[0];
+    const end = [cur.end, ...kids.map((k) => k.end!).filter(Boolean)].sort().pop()!;
+    dates.set(parent.id, { start, end });
+  }
+  const changes = tasks
+    .filter((t) => {
+      const d = dates.get(t.id)!;
+      return d.start !== t.start_date || d.end !== t.end_date;
+    })
+    .map((t) => ({ id: t.id, start_date: dates.get(t.id)!.start!, end_date: dates.get(t.id)!.end! }));
+  return { changes, overrun: changes.some((c) => c.end_date > missionEnd) };
 }
 
 const isPlanTask = (t: Pick<ExecTask, 'tags'>) => t.tags.includes(MISSION_TAG) && !t.tags.some((tag) => tag.startsWith('tahap:'));

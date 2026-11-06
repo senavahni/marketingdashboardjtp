@@ -11,6 +11,7 @@ const t = (id: string, over: Partial<ExecTask> = {}): ExecTask => ({
   assignee_type: null,
   agent_status: 'idle',
   start_date: '2026-11-10',
+  end_date: '2026-11-11',
   tags: ['misi', 'eksekutor:agent'],
   ...over,
 });

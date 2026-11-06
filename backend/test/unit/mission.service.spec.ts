@@ -61,6 +61,8 @@ function baseMission() {
     execution_enabled: true,
     max_runs: 10,
     runs_dispatched: 0,
+    budget_usd: null as number | null,
+    runs_cost_usd: 0,
     task_map: null as unknown,
     completed_at: null,
     created_by: user.id,
@@ -157,6 +159,7 @@ describe('MissionService.createForIntelJobInTx', () => {
       approval_mode: 'auto' as const,
       execution_enabled: false,
       max_runs: 3,
+      budget_usd: null,
     },
     plannerAgentId: planner.id,
     stages: [
@@ -252,6 +255,7 @@ describe('MissionService misi manual (M3_TASK_014 Fase A)', () => {
     approval_mode: 'review' as const,
     execution_enabled: true,
     max_runs: 5,
+    budget_usd: 0.75,
   };
 
   it('tanpa project → project AI + task induk "Misi: …" + misi planning (instruksi memuat hasil yang diharapkan)', async () => {
@@ -389,6 +393,14 @@ describe('MissionService planning & materialisasi', () => {
     expect(h.state().intel_job_id).toBe(retryJob);
     expect(h.tasks.updateAs.mock.calls.map(([, , , input]) => input)).toEqual([{ status: 'done' }, { status: 'done' }]);
     expect(h.mcp.call).toHaveBeenCalledWith('intel_mission_plan', expect.anything(), expect.anything(), undefined, expect.any(Number));
+  });
+
+  it('lanjutkan misi yang dijeda karena budget: wajib menambah budget di atas biaya terpakai', async () => {
+    const h = harness({ status: 'paused', budget_usd: 0.5, runs_cost_usd: 0.62 });
+    expect(await code(h.service.resume(user, missionId))).toMatch(/belum melebihi biaya/);
+    await h.service.resume(user, missionId, 0, 0.5);
+    expect(h.state()).toMatchObject({ status: 'scheduled', budget_usd: 1 });
+    expect(h.executor.tickMission).toHaveBeenCalledWith(missionId);
   });
 
   it('revisi dibatasi & aksi hanya pada status yang sesuai', async () => {
