@@ -39,7 +39,12 @@ export const envSchema = z.object({
   FEATURE_AI_PROMPT_BLOCK: bool.default(false),
   SWAGGER_ENABLED: bool.default(true),
 
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  // Huruf besar diterima: shell yang sudah memuat .env MCP/Gateway mewariskan LOG_LEVEL=INFO
+  LOG_LEVEL: z
+    .string()
+    .transform((v) => v.toLowerCase())
+    .pipe(z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']))
+    .default('info'),
   SEED_DEMO_PASSWORD: z.string().min(10).default('Demo12345!'),
 });
 

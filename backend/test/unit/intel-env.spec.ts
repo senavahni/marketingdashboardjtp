@@ -18,4 +18,10 @@ describe('MCP Intel environment configuration', () => {
     expect(envSchema.safeParse({ ...required, MCP_INTEL_API_KEY: `mcpk_abcd1234_${'x'.repeat(43)}` }).success).toBe(true);
     expect(envSchema.safeParse({ ...required, MCP_INTEL_API_KEY: 'mcpk_invalid' }).success).toBe(false);
   });
+
+  it('menerima LOG_LEVEL huruf besar (mis. INFO warisan env MCP/Gateway) dan menormalkannya', () => {
+    const parsed = envSchema.safeParse({ ...required, LOG_LEVEL: 'INFO' });
+    expect(parsed.success && parsed.data.LOG_LEVEL).toBe('info');
+    expect(envSchema.safeParse({ ...required, LOG_LEVEL: 'verbose' }).success).toBe(false);
+  });
 });

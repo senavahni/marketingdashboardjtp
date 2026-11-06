@@ -28,6 +28,7 @@ Menjalankan ketiganya: `D:\Data.Fahrul\Documents\PortableDev\projects\start-proj
 | [M3_PRD.md](M3_PRD.md) | Visi, tujuan, persona & RBAC, FR/NFR, di luar scope | — |
 | [M3_USE_CASES.md](M3_USE_CASES.md) | UC-M3-01 … 08 dengan alur alternatif & error | — |
 | [M3_MCP_INTEGRATION.md](M3_MCP_INTEGRATION.md) | **Kontrak 1.2**: toolset `intel`, event `intel.job.*`, key & atribusi Gateway, kode error | — |
+| [../KONFIGURASI_3_PROJECT.md](../KONFIGURASI_3_PROJECT.md) | Alur konfigurasi & semua kredensial Dashboard ↔ MCP ↔ Gateway (termasuk login console) | — |
 | [M3_REVIEW.md](M3_REVIEW.md) | Hasil review draf awal & alasan perubahan | — |
 | [M3_TASK_000](M3_TASK_000_CONTRACT.md) | Kontrak bersama: schema Zod ↔ Pydantic, fixture contract test | dashboard + mcp |
 | [M3_TASK_001](M3_TASK_001_DB_SECURITY.md) | Tabel `intel_jobs`, `intel_job_stages`, `intel_insights`, keamanan | dashboard |
@@ -106,7 +107,7 @@ Sama dengan [Modul 1 README §5](../modul1/README.md#5-definition-of-done-berlak
 | 007 | ✅ Selesai (repo mcp) — toolset `intel` 8 tool, job `intel_pipeline`, outbox per job, atribusi LLM per agent; migrasi `0003_intel` diterapkan ke DB |
 | 001, 002 | Backend dikerjakan (commit `017b1e1`); migrasi `20261104000000_m3_intel` + seed diterapkan ke DB lokal |
 | 008 | ✅ Selesai — wizard langkah 3 memakai default per tahap, diuji E2E-M3-01. Tambahan 5 Nov 2026: autocomplete "MCP agent key" dari profil MCP (`GET /workspaces/:ws/intel/mcp-profiles`) & tombol **Tambah agent default** (`POST /workspaces/:ws/intel/agents/bootstrap`: researcher/analyst/strategist + default tahap yang kosong) |
-| 009 | 🟡 Kode, provisioning, biaya per tahap di detail job & uji manual `/admin/requests` (`X-Caller-Agent`, `caller_task`) selesai (5 Nov 2026). Credential `analyst`/`system` sudah key project `marketing-mcp`, harga model & biaya aktual provider di konsol Gateway. Sisa: `ANTHROPIC_ADMIN_KEY` (opsional), rotasi UI (P1) |
+| 009 | 🟡 Kode, provisioning, biaya per tahap di detail job & uji manual `/admin/requests` (`X-Caller-Agent`, `caller_task`) selesai (5 Nov 2026). Credential `analyst`/`system` sudah key project `marketing-mcp`, harga model & biaya aktual provider di konsol Gateway. 6 Nov: tombol **Rotasi key** per agent di Pengaturan → AI & Gateway (tool MCP `intel_llm_key_rotate`) — aktif setelah `LLM_GATEWAY_ADMIN_KEY` diisi di `.env` MCP. Sisa: `ANTHROPIC_ADMIN_KEY` (opsional) |
 | 003 | ✅ Selesai — rancangan + state & arah visual (§B.8–B.9) |
 | 004, 005 | ✅ Selesai — UI + Vitest + Playwright stack nyata `frontend/e2e/intel.stack.e2e.ts` (E2E-M3-01..07, sumber Web). Uji 5.000 item X menunggu profil browser X login (TASK_006 §C) |
 | 010 | ✅ Selesai — tahap Indeks ke KB `intel:<workspace_id>`, purge saat hapus job, wizard toggle + badge; diuji MCP (integrasi), Jest, Vitest, Playwright E2E-M3-08 |
