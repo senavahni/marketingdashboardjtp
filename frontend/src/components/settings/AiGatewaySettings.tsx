@@ -2,6 +2,7 @@ import { AlertTriangle, KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { isIntelDisabled, useIntelAgents, useLlmStatus, useStageDefaults, useUpdateStageDefaults } from '../../hooks/intel-queries';
+import { useRotateLlmKey } from '../../hooks/llm-key-queries';
 import { errorMessage } from '../../lib/api';
 import {
   CAPABILITY_LABEL,
@@ -13,7 +14,10 @@ import {
   type LlmStatus,
   type SelectableStage,
 } from '../../lib/intel-types';
+import { canRotateKey, rotationOutcome } from '../../lib/llm-keys';
 import { cn } from '../../lib/utils';
+import { Button } from '../ui/button';
+import { ConfirmDialog } from '../ui/confirm-dialog';
 import { Spinner } from '../ui/misc';
 
 const STAGES: SelectableStage[] = ['collect', 'analyze', 'index'];
@@ -119,6 +123,21 @@ function GatewaySection({ workspaceId, agents }: { workspaceId: string; agents: 
   const nameByKey = new Map(agents.map((a) => [a.mcp_agent_key, a.name]));
   const routeByKey = new Map(agents.map((a) => [a.mcp_agent_key, a.route]));
   const sharedKeys = data?.agents.filter((a) => a.key_source !== 'agent') ?? [];
+  const [rotating, setRotating] = useState<{ agentKey: string; name: string } | null>(null);
+  const rotate = useRotateLlmKey(workspaceId);
+  const runRotate = () => {
+    if (!rotating) return;
+    const { agentKey, name } = rotating;
+    rotate.mutate(agentKey, {
+      onSuccess: (result) => {
+        const { level, message } = rotationOutcome(name, result);
+        if (level === 'success') toast.success(message);
+        else toast.warning(message);
+      },
+      onError: (e) => toast.error(errorMessage(e)),
+      onSettled: () => setRotating(null),
+    });
+  };
   return (
     <section>
       <div className="mb-2 flex items-center justify-between">
@@ -162,6 +181,9 @@ function GatewaySection({ workspaceId, agents }: { workspaceId: string; agents: 
                   <th className="text-right font-normal">Panggilan</th>
                   <th className="text-right font-normal">Token</th>
                   <th className="text-right font-normal">Biaya</th>
+                  <th className="font-normal">
+                    <span className="sr-only">Aksi</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -186,6 +208,19 @@ function GatewaySection({ workspaceId, agents }: { workspaceId: string; agents: 
                     <td className="text-right tabular-nums">{num(a.usage.calls)}</td>
                     <td className="text-right tabular-nums">{num(a.usage.prompt_tokens + a.usage.completion_tokens)}</td>
                     <td className="text-right tabular-nums">{usd(a.usage.usd)}</td>
+                    <td className="pl-2 text-right">
+                      {canRotateKey(a) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={rotate.isPending}
+                          aria-label={`Rotasi key ${nameByKey.get(a.agent_key) ?? a.agent_key}`}
+                          onClick={() => setRotating({ agentKey: a.agent_key, name: nameByKey.get(a.agent_key) ?? a.agent_key })}
+                        >
+                          Rotasi key
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -194,6 +229,18 @@ function GatewaySection({ workspaceId, agents }: { workspaceId: string; agents: 
           <ProjectUsage project={data.project} />
         </>
       )}
+      <ConfirmDialog
+        open={rotating !== null}
+        onOpenChange={(o) => !o && !rotate.isPending && setRotating(null)}
+        title="Rotasi key Gateway?"
+        confirmLabel="Rotasi key"
+        danger
+        pending={rotate.isPending}
+        onConfirm={runRotate}
+      >
+        Key Gateway <b className="text-ink">{rotating?.name}</b> akan diganti dengan key baru. Key lama langsung tidak berlaku: job yang sedang
+        berjalan dengan agent ini bisa gagal sesaat dan perlu dijalankan ulang.
+      </ConfirmDialog>
     </section>
   );
 }
