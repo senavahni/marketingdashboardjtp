@@ -1,5 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import type { Response } from 'express';
+import { ZodError } from 'zod';
 import { Prisma } from '../../generated/prisma/client';
 import { ErrorCode, ErrorCodeValue } from '../constants/error-codes';
 import { AppException } from '../exceptions/app.exception';
@@ -51,6 +52,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return {
         status: exception.getStatus(),
         body: { code: exception.code, message: exception.message, details: exception.details },
+      };
+    }
+
+    // Service memanggil schema.parse(raw) langsung (bukan lewat ZodPipe) → tetap 400, bukan 500
+    if (exception instanceof ZodError) {
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        body: {
+          code: ErrorCode.VALIDATION_ERROR,
+          message: 'Data tidak valid',
+          details: { issues: exception.issues.map((i) => ({ path: i.path.join('.'), message: i.message })) },
+        },
       };
     }
 

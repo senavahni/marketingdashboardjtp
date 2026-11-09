@@ -1,0 +1,18 @@
+{
+  "name": "valid_spec_opportunity_scoring",
+  "schema": "job_spec",
+  "valid": true,
+  "payload": {
+    "title": "Uji 1.3",
+    "language": "id",
+    "llm_assist": false,
+    "budget_usd": 2.5,
+    "agents": {
+      "score": "analyst"
+    },
+    "kind": "opportunity_scoring",
+    "params": {
+      "product_id": "44444444-4444-4444-8444-444444444444"
+    }
+  }
+}

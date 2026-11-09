@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { hasRole } from '../../common/constants/domain';
+import { Permission, can } from '../../common/constants/permissions';
 import { Errors } from '../../common/exceptions/app.exception';
 import { PrismaService } from '../../database/prisma.service';
 import { agents, document_blocks, projects, tasks, workspace_role, workspaces } from '../../generated/prisma/client';
@@ -63,6 +64,13 @@ export class AccessService {
     if (!workspace) throw Errors.notFound('Workspace tidak ditemukan');
     const role = await this.checkRole(userId, workspace.id, minRole);
     return { workspace, role };
+  }
+
+  /** RBAC v1.0.0: anggota workspace + izin granular (bukan anggota → 404, izin kurang → 403). */
+  async assertPermission(userId: string, workspaceId: string, permission: Permission): Promise<WorkspaceAccess> {
+    const access = await this.assertWorkspace(userId, workspaceId);
+    if (!can(access.role, permission)) throw Errors.forbidden(`Butuh izin ${permission}`);
+    return access;
   }
 
   async assertProject(userId: string, projectId: string, minRole: workspace_role = 'viewer'): Promise<ProjectAccess> {

@@ -1,0 +1,28 @@
+{
+  "name": "invalid_ci_company_list_no_total",
+  "schema": "ci_company_list",
+  "valid": false,
+  "payload": {
+    "items": [
+      {
+        "company_id": "55555555-5555-4555-8555-555555555555",
+        "name": "SMK Negeri 1 Bandung",
+        "org_type": "education",
+        "kbli_code": "85",
+        "isic_code": "P85",
+        "region": {
+          "province_code": "32",
+          "province_name": "Jawa Barat",
+          "regency_code": "32.73",
+          "regency_name": "Kota Bandung"
+        },
+        "completeness": 0.7,
+        "top_score": 81.5,
+        "origin": "import",
+        "updated_at": "2026-11-09T03:00:00Z"
+      }
+    ],
+    "next_cursor": null
+  },
+  "expect_path": "total_estimate"
+}

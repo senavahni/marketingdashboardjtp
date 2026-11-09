@@ -1,0 +1,14 @@
+{
+  "name": "invalid_upload_too_large",
+  "schema": "upload_accepted",
+  "valid": false,
+  "payload": {
+    "upload_id": "u_abc123def4",
+    "kind": "pdf",
+    "filename": "buku.pdf",
+    "size": 104857601,
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "status": "stored"
+  },
+  "expect_path": "size"
+}

@@ -5,6 +5,7 @@ import { ZodType } from 'zod';
 import { AppConfigService } from '../../config/app-config.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { McpCallError } from '../agent-runs/mcp-client.service';
+import type { McpTool13 } from '../../shared/schemas/intel-1.3-tools.schema';
 import { mapIntelMcpError } from './intel-mcp.errors';
 import { redactGatewayKeys } from './intel-sanitizer';
 
@@ -26,7 +27,9 @@ export type IntelToolName =
   | 'intel_browser_profile_create'
   | 'intel_browser_login_start'
   | 'intel_browser_login_get'
-  | 'intel_browser_login_cancel';
+  | 'intel_browser_login_cancel'
+  // Kontrak 1.3 (DSH-V1-00): respons tetap divalidasi schema dan ditolak bila tidak sesuai
+  | McpTool13;
 
 const TOOL_TIMEOUT_MS = 15_000;
 

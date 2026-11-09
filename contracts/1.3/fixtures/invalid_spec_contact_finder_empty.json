@@ -1,0 +1,17 @@
+{
+  "name": "invalid_spec_contact_finder_empty",
+  "schema": "job_spec",
+  "valid": false,
+  "payload": {
+    "title": "Uji 1.3",
+    "language": "id",
+    "llm_assist": false,
+    "budget_usd": 2.5,
+    "agents": {},
+    "kind": "contact_finder",
+    "params": {
+      "rerun_statuses": []
+    }
+  },
+  "expect_path": "params.target_ids"
+}

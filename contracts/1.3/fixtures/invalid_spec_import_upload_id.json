@@ -1,0 +1,19 @@
+{
+  "name": "invalid_spec_import_upload_id",
+  "schema": "job_spec",
+  "valid": false,
+  "payload": {
+    "title": "Uji 1.3",
+    "language": "id",
+    "llm_assist": false,
+    "budget_usd": 2.5,
+    "agents": {},
+    "kind": "company_import",
+    "params": {
+      "upload_id": "file.xlsx",
+      "sheet": "Sheet1",
+      "mode": "contact_targets"
+    }
+  },
+  "expect_path": "params.upload_id"
+}

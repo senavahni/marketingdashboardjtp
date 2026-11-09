@@ -26,7 +26,9 @@
     "db:seed:dummy": "node dist/database/seeds/seed-dummy.js",
     "db:setup": "npm run build && node dist/scripts/create-database.js && prisma migrate deploy && node dist/database/seeds/seed.js",
     "mcp:send-event": "node dist/scripts/send-mcp-event.js",
-    "m3:smoke": "node dist/scripts/m3-smoke.js"
+    "m3:smoke": "node dist/scripts/m3-smoke.js",
+    "contract:fixtures": "npm run build && node dist/scripts/export-contract-13-fixtures.js",
+    "mcp:mock": "npm run build && node dist/scripts/mock-mcp-13.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

@@ -74,6 +74,7 @@ export function IntelPage() {
               </Link>
               <Link
                 to={`${base}/missions`}
+                data-tour="intel-missions"
                 className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line-strong bg-white px-3 text-sm font-medium text-ink hover:bg-hover"
               >
                 <Bot size={15} /> Misi Agent

@@ -1,0 +1,22 @@
+{
+  "name": "valid_kn_asset_list",
+  "schema": "kn_asset_list",
+  "valid": true,
+  "payload": {
+    "items": [
+      {
+        "asset_id": "ka_abc123def4",
+        "upload_id": "u_abc123def4",
+        "title": "Buku Marketing",
+        "kind": "book",
+        "status": "ready",
+        "pages": 480,
+        "chunks": 1900,
+        "needs_ocr": false,
+        "error": null
+      }
+    ],
+    "next_cursor": null,
+    "total_estimate": 1
+  }
+}

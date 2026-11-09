@@ -1,0 +1,24 @@
+{
+  "name": "invalid_event_import_rows_over_max",
+  "schema": "event",
+  "valid": false,
+  "payload": {
+    "contract_version": "1.3",
+    "event_id": "77777777-7777-4777-8777-777777777777",
+    "event_type": "ci.import.status",
+    "occurred_at": "2026-11-09T03:00:00Z",
+    "job_id": "22222222-2222-4222-8222-222222222222",
+    "mcp_job_id": "j_0123456789",
+    "sequence": 2,
+    "data": {
+      "batch_id": "ib_abc123def4",
+      "status": "inserting",
+      "rows_total": 50001,
+      "rows_inserted": 0,
+      "rows_merged": 0,
+      "rows_review": 0,
+      "rows_failed": 0
+    }
+  },
+  "expect_path": "data.rows_total"
+}

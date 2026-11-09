@@ -8,7 +8,7 @@ import { useTour } from '../../lib/tour-store';
 import { cn } from '../../lib/utils';
 import { Button, IconButton } from '../ui/button';
 
-type Page = 'home' | 'brief' | 'table' | 'board' | 'timeline' | 'web-report' | 'intel' | 'intel-sources';
+type Page = 'home' | 'brief' | 'table' | 'board' | 'timeline' | 'web-report' | 'intel' | 'intel-sources' | 'intel-missions';
 const PROJECT_PAGES: Page[] = ['brief', 'table', 'board', 'timeline'];
 
 interface TourStep {
@@ -241,6 +241,43 @@ const STEPS: TourStep[] = [
     body: 'Cek mode tiap sumber (API resmi, mode browser, atau tidak tersedia) dan status route LLM sebelum menjalankan riset.',
   },
   {
+    target: 'intel-missions',
+    page: 'intel',
+    intel: true,
+    title: 'Misi Agent: tugas terjadwal 🗓️',
+    body: (
+      <>
+        Ingin agent mengerjakan pekerjaan sesuai jadwal? Buka <b>Misi Agent</b>. Cukup beri perintah dan timeline; agent menyusun task & subtask bertanggal di
+        Penjadwalan, lalu mengerjakan bagiannya sendiri saat tanggalnya tiba.
+      </>
+    ),
+  },
+  {
+    target: 'mission-new',
+    page: 'intel-missions',
+    intel: true,
+    title: 'Beri perintah ke agent',
+    body: (
+      <>
+        Klik <b>Perintah ke Agent</b>, isi judul, perintah, hasil yang diharapkan, proyek, dan timeline. Pilih <b>Langsung jalan</b> (rencana langsung ditulis)
+        atau <b>Tinjau dulu</b> (rencana disetujui dulu). Biarkan <b>Agent mengerjakan task bagiannya</b> aktif, lalu atur kuota run dan budget USD (opsional).
+      </>
+    ),
+  },
+  {
+    target: 'mission-list',
+    page: 'intel-missions',
+    intel: true,
+    title: 'Agent bekerja sesuai jadwal',
+    body: (
+      <>
+        Tiap ±2 menit, task berlabel <b>eksekutor:agent</b> yang tanggal mulainya sudah tiba dan dependensinya selesai otomatis dikerjakan (maks. 2 run
+        sekaligus). Run gagal dicoba ulang sekali, task terlambat digeser sekali sehari. Buka misi untuk melihat progres dan biaya, lalu <b>Jeda</b>,{' '}
+        <b>Lanjutkan</b>, atau <b>Batalkan</b>. Misi otomatis dijeda bila kuota run atau budget habis.
+      </>
+    ),
+  },
+  {
     target: 'settings',
     page: 'intel',
     intel: true,
@@ -268,6 +305,7 @@ function tourDestination(page: Page, workspaceId: string, projectId: string | un
   if (page === 'web-report') return `/w/${workspaceId}/web-report`;
   if (page === 'intel') return `/w/${workspaceId}/intel`;
   if (page === 'intel-sources') return `/w/${workspaceId}/intel/sources`;
+  if (page === 'intel-missions') return `/w/${workspaceId}/intel/missions`;
   return `/w/${workspaceId}/p/${projectId}?view=${page}`;
 }
 

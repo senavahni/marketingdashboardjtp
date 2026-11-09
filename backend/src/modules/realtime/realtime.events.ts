@@ -16,6 +16,15 @@ export const RealtimeEvent = {
   AGENT_STATUS: 'agent.status',
   NOTIFICATION_CREATED: 'notification.created',
   INTEL_JOB_UPDATED: 'intel.job.updated',
+  // Kontrak 1.3 (DSH-V1-02) — room workspace
+  INTEL_JOB_PAUSED: 'intel.job.paused',
+  INTEL_JOB_AWAITING_REVIEW: 'intel.job.awaiting_review',
+  INTEL_COMPANY_UPSERTED: 'intel.company.upserted',
+  CI_IMPORT_STATUS: 'ci.import.status',
+  KN_ASSET_STATUS: 'kn.asset.status',
+  OPP_SCORES_UPDATED: 'opp.scores.updated',
+  CT_BATCH_READY: 'ct.batch.ready',
+  APPROVAL_CREATED: 'approval.created',
 } as const;
 
 export type RealtimeEventName = (typeof RealtimeEvent)[keyof typeof RealtimeEvent];

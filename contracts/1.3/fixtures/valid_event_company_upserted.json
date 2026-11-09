@@ -1,0 +1,20 @@
+{
+  "name": "valid_event_company_upserted",
+  "schema": "event",
+  "valid": true,
+  "payload": {
+    "contract_version": "1.3",
+    "event_id": "77777777-7777-4777-8777-777777777777",
+    "event_type": "intel.company.upserted",
+    "occurred_at": "2026-11-09T03:00:00Z",
+    "job_id": "22222222-2222-4222-8222-222222222222",
+    "mcp_job_id": "j_0123456789",
+    "sequence": 2,
+    "data": {
+      "company_id": "55555555-5555-4555-8555-555555555555",
+      "name": "SMK Negeri 1 Bandung",
+      "origin": "discovery",
+      "created": true
+    }
+  }
+}

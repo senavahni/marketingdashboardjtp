@@ -1,0 +1,105 @@
+{
+  "name": "valid_company_profile",
+  "schema": "company_profile",
+  "valid": true,
+  "payload": {
+    "company_id": "55555555-5555-4555-8555-555555555555",
+    "name": "SMK Negeri 1 Bandung",
+    "org_type": "education",
+    "kbli_code": "85",
+    "isic_code": "P85",
+    "region": {
+      "province_code": "32",
+      "province_name": "Jawa Barat",
+      "regency_code": "32.73",
+      "regency_name": "Kota Bandung"
+    },
+    "completeness": 0.7,
+    "top_score": 81.5,
+    "origin": "import",
+    "updated_at": "2026-11-09T03:00:00Z",
+    "description_quotes": [
+      {
+        "quote": "Sekolah kejuruan unggulan",
+        "source": {
+          "source_url": "https://contoh.co.id/kontak",
+          "source_kind": "web",
+          "collected_at": "2026-11-09T03:00:00Z"
+        }
+      }
+    ],
+    "domains": [
+      {
+        "domain": "smkn1bdg.sch.id",
+        "is_primary": true,
+        "confidence": 0.95
+      }
+    ],
+    "locations": [
+      {
+        "address_raw": "Jl. Wastukencana 3",
+        "region_code": "32.73",
+        "lat": -6.9,
+        "lng": 107.6,
+        "precision": "street",
+        "geocode_source": "gmaps"
+      }
+    ],
+    "contacts": [
+      {
+        "contact_id": "66666666-6666-4666-8666-666666666666",
+        "kind": "email",
+        "value": "info@smkn1bdg.sch.id",
+        "contact_type": "generic",
+        "review_status": "approved",
+        "suppressed": false,
+        "source": {
+          "source_url": "https://contoh.co.id/kontak",
+          "source_kind": "web",
+          "collected_at": "2026-11-09T03:00:00Z"
+        }
+      },
+      {
+        "contact_id": "77777777-7777-4777-8777-777777777777",
+        "kind": "email",
+        "value": "budi@smkn1bdg.sch.id",
+        "contact_type": "personal",
+        "person_name": "Budi",
+        "job_title": "Kepala TU",
+        "review_status": "pending",
+        "suppressed": false,
+        "source": {
+          "source_url": "https://contoh.co.id/kontak",
+          "source_kind": "web",
+          "collected_at": "2026-11-09T03:00:00Z"
+        }
+      }
+    ],
+    "needs": [
+      {
+        "need": "Sistem administrasi siswa",
+        "category": "software",
+        "confidence": 0.7,
+        "evidence": [
+          {
+            "quote": "membutuhkan aplikasi",
+            "source": {
+              "source_url": "https://contoh.co.id/kontak",
+              "source_kind": "web",
+              "collected_at": "2026-11-09T03:00:00Z"
+            }
+          }
+        ]
+      }
+    ],
+    "signals": [],
+    "scores": [
+      {
+        "product_id": "44444444-4444-4444-8444-444444444444",
+        "score": 81.5,
+        "priority": "high",
+        "score_model_version": "v1"
+      }
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "invalid_ci_geo_clusters_bbox",
+  "schema": "ci_geo_clusters_input",
+  "valid": false,
+  "payload": {
+    "workspace_id": "11111111-1111-4111-8111-111111111111",
+    "bbox": [
+      141,
+      -11,
+      95,
+      6
+    ],
+    "zoom": 5
+  },
+  "expect_path": "bbox"
+}

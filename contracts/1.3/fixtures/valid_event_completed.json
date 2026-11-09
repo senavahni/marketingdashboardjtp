@@ -1,0 +1,31 @@
+{
+  "name": "valid_event_completed",
+  "schema": "event",
+  "valid": true,
+  "payload": {
+    "contract_version": "1.3",
+    "event_id": "77777777-7777-4777-8777-777777777777",
+    "event_type": "intel.job.completed",
+    "occurred_at": "2026-11-09T03:00:00Z",
+    "job_id": "22222222-2222-4222-8222-222222222222",
+    "mcp_job_id": "j_0123456789",
+    "sequence": 2,
+    "data": {
+      "summary_preview": "48 perusahaan",
+      "totals": {
+        "counts": {
+          "companies": 48
+        }
+      },
+      "cost": {
+        "llm_tokens": 1000,
+        "usd_llm": 0.01,
+        "external_units": 0,
+        "usd_external": 0,
+        "by_stage": [],
+        "budget_usd": 2.5
+      },
+      "partial": false
+    }
+  }
+}

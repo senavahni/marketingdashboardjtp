@@ -70,6 +70,7 @@ export class IntelMaintenanceService implements OnModuleInit, OnModuleDestroy {
         where: {
           deleted_at: null,
           mcp_job_id: { not: null },
+          kind: null, // job kontrak 1.3 disinkronkan lewat Jobs13Service
           OR: [
             { status: { in: ['queued', 'collecting', 'analyzing', 'indexing', 'cancelling'] }, updated_at: { lt: staleAt } },
             { insight_pending: true },

@@ -1,0 +1,25 @@
+{
+  "name": "valid_geo_clusters",
+  "schema": "geo_clusters",
+  "valid": true,
+  "payload": {
+    "clusters": [
+      {
+        "id": "c1",
+        "lat": -6.9,
+        "lng": 107.6,
+        "count": 42,
+        "top_priority": "high"
+      },
+      {
+        "id": "c2",
+        "lat": -6.2,
+        "lng": 106.8,
+        "count": 1,
+        "company_id": "55555555-5555-4555-8555-555555555555",
+        "precision": "street"
+      }
+    ],
+    "total": 43
+  }
+}

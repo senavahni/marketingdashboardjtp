@@ -1,0 +1,19 @@
+{
+  "name": "invalid_spec_agent_unknown_stage",
+  "schema": "job_spec",
+  "valid": false,
+  "payload": {
+    "title": "Uji 1.3",
+    "language": "id",
+    "llm_assist": false,
+    "budget_usd": 2.5,
+    "agents": {
+      "collect": "researcher"
+    },
+    "kind": "opportunity_scoring",
+    "params": {
+      "product_id": "44444444-4444-4444-8444-444444444444"
+    }
+  },
+  "expect_path": "agents.collect"
+}

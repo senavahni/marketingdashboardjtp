@@ -1,0 +1,9 @@
+{
+  "name": "valid_resume_output",
+  "schema": "job_resume_output",
+  "valid": true,
+  "payload": {
+    "resumed": true,
+    "status": "running"
+  }
+}

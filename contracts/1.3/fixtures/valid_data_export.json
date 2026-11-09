@@ -1,0 +1,12 @@
+{
+  "name": "valid_data_export",
+  "schema": "data_export",
+  "valid": true,
+  "payload": {
+    "export_id": "ex_abc123def4",
+    "rows": 1240,
+    "download_path": "/exports/ex_abc123def4",
+    "expires_at": "2026-11-09T03:00:00Z",
+    "sanitized": true
+  }
+}

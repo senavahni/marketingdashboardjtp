@@ -1,0 +1,9 @@
+{
+  "name": "valid_review_output",
+  "schema": "job_review_output",
+  "valid": true,
+  "payload": {
+    "accepted": true,
+    "status": "running"
+  }
+}

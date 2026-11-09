@@ -19,7 +19,10 @@ export type NotificationType =
   | 'intel_job_failed'
   | 'mission_plan_ready'
   | 'mission_budget_reached'
-  | 'mission_rescheduled';
+  | 'mission_rescheduled'
+  | 'intel_job_paused'
+  | 'intel_review_requested'
+  | 'content_batch_ready';
 
 export interface NotifyInput {
   recipients: (string | null | undefined)[];

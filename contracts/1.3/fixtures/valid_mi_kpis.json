@@ -1,0 +1,39 @@
+{
+  "name": "valid_mi_kpis",
+  "schema": "mi_kpis",
+  "valid": true,
+  "payload": {
+    "kpis": [
+      {
+        "key": "companies_total",
+        "label": "Perusahaan",
+        "value": 1240,
+        "unit": "count",
+        "delta": 0.12,
+        "definition": "Perusahaan aktif di workspace",
+        "period": {
+          "since": "2026-10-01",
+          "until": "2026-10-31"
+        },
+        "source": "ci_companies",
+        "as_of": "2026-11-09T03:00:00Z",
+        "insufficient_data": false
+      },
+      {
+        "key": "win_rate",
+        "label": "Win rate",
+        "value": null,
+        "unit": "percent",
+        "definition": "won / (won+lost)",
+        "period": {
+          "since": "2026-10-01",
+          "until": "2026-10-31"
+        },
+        "source": "opportunities",
+        "as_of": "2026-11-09T03:00:00Z",
+        "insufficient_data": true
+      }
+    ],
+    "as_of": "2026-11-09T03:00:00Z"
+  }
+}

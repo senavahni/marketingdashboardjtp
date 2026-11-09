@@ -32,3 +32,6 @@ Thumbs.db
 .claude/*
 .claude/
 CLAUDE.MD
+
+graphify-out/*
+graphify-out/

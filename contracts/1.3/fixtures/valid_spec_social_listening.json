@@ -1,0 +1,25 @@
+{
+  "name": "valid_spec_social_listening",
+  "schema": "job_spec",
+  "valid": true,
+  "payload": {
+    "title": "Uji 1.3",
+    "language": "id",
+    "llm_assist": false,
+    "budget_usd": 2.5,
+    "agents": {},
+    "kind": "social_listening",
+    "params": {
+      "product_id": "44444444-4444-4444-8444-444444444444",
+      "keywords": [],
+      "platforms": [
+        "x",
+        "threads"
+      ],
+      "period": {
+        "since": "2026-10-01",
+        "until": "2026-10-31"
+      }
+    }
+  }
+}

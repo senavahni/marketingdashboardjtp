@@ -19,6 +19,11 @@ const MCP_MESSAGES: Record<string, string> = {
   BUDGET_EXCEEDED: 'Kuota LLM Gateway habis. Naikkan kuota project marketing-mcp di konsol Gateway atau tunggu reset harian (00.00 UTC)',
   UPSTREAM_ERROR: 'Model LLM gagal memberi jawaban yang valid, coba lagi',
   UPSTREAM_TIMEOUT: 'Model LLM terlalu lama menjawab, coba lagi',
+  UPLOAD_TOO_LARGE: 'Ukuran file melebihi batas (PDF ≤ 100 MB, XLSX/CSV ≤ 20 MB)',
+  UNSUPPORTED_FILE: 'Jenis file tidak didukung',
+  REVIEW_REQUIRED: 'Tahap ini menunggu review manusia',
+  CAPTCHA_REQUIRED: 'Google meminta CAPTCHA; selesaikan di profil Chrome lalu lanjutkan job',
+  LOCAL_MODEL_UNAVAILABLE: 'Model lokal embed-local tidak tersedia; job dijeda sampai model hidup',
 };
 
 const MCP_ERRORS: Record<string, { code: ErrorCodeValue; status: number }> = {
@@ -39,6 +44,11 @@ const MCP_ERRORS: Record<string, { code: ErrorCodeValue; status: number }> = {
   BUDGET_EXCEEDED: { code: ErrorCode.LLM_QUOTA_EXCEEDED, status: HttpStatus.TOO_MANY_REQUESTS },
   UPSTREAM_ERROR: { code: ErrorCode.LLM_ERROR, status: HttpStatus.BAD_GATEWAY },
   UPSTREAM_TIMEOUT: { code: ErrorCode.LLM_ERROR, status: HttpStatus.GATEWAY_TIMEOUT },
+  UPLOAD_TOO_LARGE: { code: ErrorCode.UPLOAD_TOO_LARGE, status: HttpStatus.PAYLOAD_TOO_LARGE },
+  UNSUPPORTED_FILE: { code: ErrorCode.UNSUPPORTED_FILE, status: HttpStatus.UNSUPPORTED_MEDIA_TYPE },
+  REVIEW_REQUIRED: { code: ErrorCode.REVIEW_REQUIRED, status: HttpStatus.CONFLICT },
+  CAPTCHA_REQUIRED: { code: ErrorCode.CAPTCHA_REQUIRED, status: HttpStatus.CONFLICT },
+  LOCAL_MODEL_UNAVAILABLE: { code: ErrorCode.LOCAL_MODEL_UNAVAILABLE, status: HttpStatus.SERVICE_UNAVAILABLE },
 };
 
 export function mapIntelMcpError(error: McpCallError): AppException {

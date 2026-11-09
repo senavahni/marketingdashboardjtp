@@ -1,0 +1,51 @@
+{
+  "name": "valid_job_view_completed",
+  "schema": "job_view",
+  "valid": true,
+  "payload": {
+    "mcp_job_id": "j_0123456789",
+    "dashboard_job_id": "22222222-2222-4222-8222-222222222222",
+    "kind": "company_discovery",
+    "status": "completed",
+    "stages": [
+      {
+        "stage": "product_analysis",
+        "agent_key": "analyst",
+        "status": "completed",
+        "progress": {
+          "done": 1,
+          "total": 1
+        },
+        "review": null
+      },
+      {
+        "stage": "discovery",
+        "agent_key": "prospector",
+        "status": "pending",
+        "progress": {
+          "done": 12,
+          "total": 50
+        }
+      }
+    ],
+    "cost": {
+      "llm_tokens": 1000,
+      "usd_llm": 0.01,
+      "external_units": 0,
+      "usd_external": 0,
+      "by_stage": [],
+      "budget_usd": 2.5
+    },
+    "result": {
+      "summary": "48 perusahaan",
+      "refs": {
+        "company_index": "companies"
+      },
+      "counts": {
+        "companies": 48
+      },
+      "partial": false,
+      "warnings": []
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "invalid_opp_explain_weight",
+  "schema": "opp_explain",
+  "valid": false,
+  "payload": {
+    "score": 50,
+    "confidence": 0.5,
+    "score_model_version": "v1",
+    "components": [
+      {
+        "key": "k",
+        "label": "l",
+        "weight": 1.5,
+        "value": 0.1,
+        "known": true
+      }
+    ]
+  },
+  "expect_path": "components.0.weight"
+}

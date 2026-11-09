@@ -358,7 +358,8 @@ export class IntelService {
     await this.access.assertWorkspace(user.id, workspaceId);
     const query = intelJobsQuerySchema.parse(rawQuery);
     const offset = decodeCursor(query.cursor);
-    const where: Prisma.intel_jobsWhereInput = { workspace_id: workspaceId, deleted_at: null };
+    // kind null = job sosial Modul 3; job kontrak 1.3 didaftar lewat Jobs13Service (?kind=…)
+    const where: Prisma.intel_jobsWhereInput = { workspace_id: workspaceId, deleted_at: null, kind: null };
     if (query.status) where.status = query.status;
     if (query.source) where.sources = { has: query.source };
     const rows = await this.prisma.intel_jobs.findMany({

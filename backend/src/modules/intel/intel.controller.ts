@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Headers, HttpCode, Param, Post, Put, Query, Res, StreamableFile } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Readable } from 'node:stream';
 import type { Response } from 'express';
 import { z } from 'zod';
@@ -17,6 +17,8 @@ import {
   stageDefaultsInputSchema,
 } from './intel.schemas';
 import { IntelService } from './intel.service';
+import { Jobs13Service } from './v13/jobs13.service';
+import { createJob13Schema, estimateJob13Schema, isJob13Body, jobs13QuerySchema, reviewJob13Schema } from './v13/jobs13.schemas';
 
 const refreshQuerySchema = z
   .enum(['true', 'false'])
@@ -27,7 +29,10 @@ const refreshQuerySchema = z
 @ApiBearerAuth()
 @Controller()
 export class IntelController {
-  constructor(private readonly intel: IntelService) {}
+  constructor(
+    private readonly intel: IntelService,
+    private readonly jobs13: Jobs13Service,
+  ) {}
 
   @Get('workspaces/:ws/intel/agents')
   agents(
@@ -76,36 +81,61 @@ export class IntelController {
     return this.intel.sources(user, workspaceId, refresh, requestId);
   }
 
+  // Kontrak 1.3: body ber-`spec.kind` → Jobs13Service; tanpa kind → job sosial Modul 3 (perilaku lama)
   @Post('workspaces/:ws/intel/jobs/estimate')
-  @ApiZodBody(intelJobInputSchema)
+  @ApiZodBody(z.union([intelJobInputSchema, estimateJob13Schema]))
   estimate(
     @CurrentUser() user: AuthUser,
     @Param('ws', UuidPipe) workspaceId: string,
-    @Body(new ZodPipe(intelJobInputSchema)) body: z.infer<typeof intelJobInputSchema>,
+    @Body() body: unknown,
     @Headers('x-request-id') requestId?: string,
   ) {
-    return this.intel.estimate(user, workspaceId, body, requestId);
+    if (isJob13Body(body)) return this.jobs13.estimate(user, workspaceId, new ZodPipe(estimateJob13Schema).transform(body), requestId);
+    return this.intel.estimate(user, workspaceId, new ZodPipe(intelJobInputSchema).transform(body), requestId);
   }
 
   @Post('workspaces/:ws/intel/jobs')
-  @ApiZodBody(createIntelJobSchema)
+  @ApiZodBody(z.union([createIntelJobSchema, createJob13Schema]))
   create(
     @CurrentUser() user: AuthUser,
     @Param('ws', UuidPipe) workspaceId: string,
-    @Body(new ZodPipe(createIntelJobSchema)) body: z.infer<typeof createIntelJobSchema>,
+    @Body() body: unknown,
     @Headers('x-request-id') requestId?: string,
   ) {
-    return this.intel.create(user, workspaceId, body, requestId);
+    if (isJob13Body(body)) return this.jobs13.create(user, workspaceId, new ZodPipe(createJob13Schema).transform(body), requestId);
+    return this.intel.create(user, workspaceId, new ZodPipe(createIntelJobSchema).transform(body), requestId);
   }
 
   @Get('workspaces/:ws/intel/jobs')
   @ApiZodQuery(intelJobsQuerySchema)
-  list(
+  @ApiQuery({ name: 'kind', required: false, description: 'Kontrak 1.3: daftar job kind baru (company_discovery, …)' })
+  list(@CurrentUser() user: AuthUser, @Param('ws', UuidPipe) workspaceId: string, @Query() query: Record<string, unknown>) {
+    if (query.kind !== undefined) return this.jobs13.list(user, workspaceId, new ZodPipe(jobs13QuerySchema).transform(query));
+    return this.intel.list(user, workspaceId, new ZodPipe(intelJobsQuerySchema).transform(query));
+  }
+
+  @Post('workspaces/:ws/intel/jobs/:id/review')
+  @HttpCode(200)
+  @ApiZodBody(reviewJob13Schema)
+  review(
     @CurrentUser() user: AuthUser,
     @Param('ws', UuidPipe) workspaceId: string,
-    @Query(new ZodPipe(intelJobsQuerySchema)) query: z.infer<typeof intelJobsQuerySchema>,
+    @Param('id', UuidPipe) jobId: string,
+    @Body(new ZodPipe(reviewJob13Schema)) body: z.infer<typeof reviewJob13Schema>,
+    @Headers('x-request-id') requestId?: string,
   ) {
-    return this.intel.list(user, workspaceId, query);
+    return this.jobs13.review(user, workspaceId, jobId, body, requestId);
+  }
+
+  @Post('workspaces/:ws/intel/jobs/:id/resume')
+  @HttpCode(200)
+  resume(
+    @CurrentUser() user: AuthUser,
+    @Param('ws', UuidPipe) workspaceId: string,
+    @Param('id', UuidPipe) jobId: string,
+    @Headers('x-request-id') requestId?: string,
+  ) {
+    return this.jobs13.resume(user, workspaceId, jobId, requestId);
   }
 
   @Get('workspaces/:ws/intel/llm-status')
@@ -159,19 +189,22 @@ export class IntelController {
   }
 
   @Get('intel/jobs/:id')
-  get(@CurrentUser() user: AuthUser, @Param('id', UuidPipe) jobId: string, @Headers('x-request-id') requestId?: string) {
+  async get(@CurrentUser() user: AuthUser, @Param('id', UuidPipe) jobId: string, @Headers('x-request-id') requestId?: string) {
+    if (await this.jobs13.kindOf(jobId)) return this.jobs13.get(user, jobId, requestId);
     return this.intel.get(user, jobId, requestId);
   }
 
   @Post('intel/jobs/:id/cancel')
   @HttpCode(200)
-  cancel(@CurrentUser() user: AuthUser, @Param('id', UuidPipe) jobId: string, @Headers('x-request-id') requestId?: string) {
+  async cancel(@CurrentUser() user: AuthUser, @Param('id', UuidPipe) jobId: string, @Headers('x-request-id') requestId?: string) {
+    if (await this.jobs13.kindOf(jobId)) return this.jobs13.cancel(user, jobId, requestId);
     return this.intel.cancel(user, jobId, requestId);
   }
 
   @Delete('intel/jobs/:id')
   @HttpCode(204)
-  remove(@CurrentUser() user: AuthUser, @Param('id', UuidPipe) jobId: string, @Headers('x-request-id') requestId?: string) {
+  async remove(@CurrentUser() user: AuthUser, @Param('id', UuidPipe) jobId: string, @Headers('x-request-id') requestId?: string) {
+    if (await this.jobs13.kindOf(jobId)) return this.jobs13.remove(user, jobId, requestId);
     return this.intel.remove(user, jobId, requestId);
   }
 }

@@ -1,0 +1,21 @@
+{
+  "name": "valid_event_asset_status",
+  "schema": "event",
+  "valid": true,
+  "payload": {
+    "contract_version": "1.3",
+    "event_id": "77777777-7777-4777-8777-777777777777",
+    "event_type": "kn.asset.status",
+    "occurred_at": "2026-11-09T03:00:00Z",
+    "job_id": "22222222-2222-4222-8222-222222222222",
+    "mcp_job_id": "j_0123456789",
+    "sequence": 2,
+    "data": {
+      "asset_id": "ka_abc123def4",
+      "upload_id": "u_abc123def4",
+      "status": "embedding",
+      "pages": 480,
+      "chunks": 900
+    }
+  }
+}

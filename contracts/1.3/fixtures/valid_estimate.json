@@ -1,0 +1,36 @@
+{
+  "name": "valid_estimate",
+  "schema": "estimate",
+  "valid": true,
+  "payload": {
+    "kind": "company_discovery",
+    "duration_seconds": {
+      "min": 3600,
+      "max": 21600
+    },
+    "llm": {
+      "tokens_est": 12000,
+      "usd_est": 0.05,
+      "llm_assist_usd_est": 0,
+      "by_stage": [
+        {
+          "stage": "product_analysis",
+          "agent_key": "analyst",
+          "route": "smart",
+          "tokens_est": 12000
+        }
+      ]
+    },
+    "external": {
+      "units": 0,
+      "usd": 0
+    },
+    "requires_confirmation": false,
+    "warnings": [
+      {
+        "code": "CHROME_RATE",
+        "message": "Discovery dibatasi volume Chrome"
+      }
+    ]
+  }
+}

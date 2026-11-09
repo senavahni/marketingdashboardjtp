@@ -24,6 +24,11 @@ export const RATE_LIMITS: Record<Exclude<RateLimitGroup, 'none'>, Window[]> = {
   webhook: [{ limit: 600, windowSec: 60 }],
   agentApi: [{ limit: 300, windowSec: 60 }],
   mcpApi: [{ limit: 120, windowSec: 60 }],
+  // DSH-V1-02: upload file besar (PDF ≤ 100 MB) per user
+  upload: [
+    { limit: 10, windowSec: 60 },
+    { limit: 60, windowSec: 3600 },
+  ],
 };
 
 /** Rate limiter fixed-window berbasis Redis. Jika Redis tidak tersedia, request tetap diizinkan (fail-open) dan dicatat. */

@@ -18,6 +18,7 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { CoreModule } from './modules/core/core.module';
 import { HealthModule } from './modules/health/health.module';
 import { IntelModule } from './modules/intel/intel.module';
+import { MarketIntelModule } from './modules/market-intel/market-intel.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
@@ -58,6 +59,8 @@ import { buildLoggerParams } from './utils/logger/logger.config';
     // Modul 2
     WebReportsModule,
     IntelModule,
+    // v1.0.0 Marketing Intelligence
+    MarketIntelModule,
     HealthModule,
   ],
   providers: [

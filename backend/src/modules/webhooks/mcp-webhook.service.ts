@@ -29,6 +29,8 @@ import { ACTIVE_RUN_STATUS_LIST } from '../tasks/task.mapper';
 import { TasksService } from '../tasks/tasks.service';
 import { isIntelEventBody } from '../../shared/schemas/intel.schema';
 import { IntelEventService } from '../intel/intel-event.service';
+import { Event13Service } from '../intel/v13/event13.service';
+import { isEvent13Body } from '../../shared/schemas/intel-1.3.schema';
 
 type RunCtx = agent_runs & { agent: agents; workspace: { id: string; timezone: string } };
 
@@ -63,9 +65,12 @@ export class McpWebhookService {
     private readonly realtime: RealtimeService,
     private readonly reader: TaskReaderService,
     private readonly intelEvents: IntelEventService,
+    private readonly events13: Event13Service,
   ) {}
 
   async handle(body: unknown): Promise<{ status: 'processed' | 'duplicate'; result?: unknown }> {
+    // Kontrak 1.3 (event baru / contract_version ≥ 1.3); job Modul 3 diteruskan balik ke IntelEventService
+    if (isEvent13Body(body)) return this.events13.handle(body);
     const unionParsed = mcpWebhookEnvelopeSchema.safeParse(body);
     if (!unionParsed.success) {
       throw Errors.validation('Envelope webhook tidak valid', {

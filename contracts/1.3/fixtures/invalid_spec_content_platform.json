@@ -1,0 +1,25 @@
+{
+  "name": "invalid_spec_content_platform",
+  "schema": "job_spec",
+  "valid": false,
+  "payload": {
+    "title": "Uji 1.3",
+    "language": "id",
+    "llm_assist": false,
+    "budget_usd": 2.5,
+    "agents": {},
+    "kind": "content_bank",
+    "params": {
+      "strategy_report_id": "sr_abc123def4",
+      "count": 30,
+      "platforms": [
+        "facebook"
+      ],
+      "period": {
+        "since": "2026-12-01",
+        "until": "2026-12-31"
+      }
+    }
+  },
+  "expect_path": "params.platforms"
+}

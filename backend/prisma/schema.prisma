@@ -91,6 +91,10 @@ enum intel_job_status {
   failed
   cancelling
   cancelled
+  // Kontrak 1.3 (m4_market_intel): job kind baru
+  running
+  awaiting_review
+  paused
 }
 
 enum intel_stage {
@@ -156,6 +160,14 @@ model users {
   intel_jobs_created intel_jobs[]          @relation("intel_job_creator")
   intel_stage_defaults_updated intel_stage_defaults[] @relation("intel_stage_default_updater")
   missions_created    agent_missions[]      @relation("mission_creator")
+  products_created    products[]            @relation("product_creator")
+  opportunities_owned opportunities[]       @relation("opportunity_owner")
+  actions_created     marketing_actions[]   @relation("marketing_action_creator")
+  strategies_created  strategy_docs[]       @relation("strategy_doc_creator")
+  contents_edited     content_items[]       @relation("content_item_editor")
+  approvals_decided   approvals[]           @relation("approval_decider")
+  uploads             upload_refs[]         @relation("upload_uploader")
+  saved_views         saved_views[]         @relation("saved_view_owner")
 }
 
 model refresh_tokens {
@@ -198,6 +210,14 @@ model workspaces {
   intel_jobs    intel_jobs[]
   intel_stage_defaults intel_stage_defaults[]
   missions      agent_missions[]
+  products          products[]
+  opportunities     opportunities[]
+  marketing_actions marketing_actions[]
+  strategy_docs     strategy_docs[]
+  content_items     content_items[]
+  approvals         approvals[]
+  upload_refs       upload_refs[]
+  saved_views       saved_views[]
 }
 
 model workspace_members {
@@ -292,6 +312,8 @@ model tasks {
   blocks         document_blocks[]
   agent_runs     agent_runs[]
   mission_root   agent_missions?   @relation("mission_root_task")
+  marketing_actions marketing_actions[] @relation("marketing_action_task")
+  content_items     content_items[]     @relation("content_item_task")
 
   @@index([project_id, status, order_index], map: "tasks_project_idx")
   @@index([parent_task_id], map: "tasks_parent_idx")
@@ -452,6 +474,13 @@ model intel_jobs {
   finished_at          DateTime?        @db.Timestamptz(6)
   insight_pending      Boolean          @default(false)
   terminal_notified_at DateTime?        @db.Timestamptz(6)
+  // Kontrak 1.3: null = job sosial Modul 3 (kontrak 1.2); tahap kind baru disimpan di stage_view (bukan intel_job_stages)
+  kind                 String?          @db.VarChar(32)
+  llm_assist           Boolean          @default(false)
+  budget_usd           Float?
+  pause                Json?
+  stage_view           Json?
+  result_summary       Json?
   created_at           DateTime         @default(now()) @db.Timestamptz(6)
   updated_at           DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
   deleted_at           DateTime?        @db.Timestamptz(6)
@@ -464,6 +493,8 @@ model intel_jobs {
   insight       intel_insights?
   webhook_events mcp_webhook_events[]
   mission       agent_missions?
+  strategy_docs strategy_docs[]        @relation("strategy_doc_job")
+  approvals     approvals[]            @relation("approval_job")
 
   @@index([workspace_id, created_at(sort: Desc)], map: "intel_jobs_ws_idx")
   @@index([status, updated_at], map: "intel_jobs_active_idx")
@@ -591,4 +622,328 @@ model agent_missions {
 
   @@index([workspace_id, created_at(sort: Desc)], map: "agent_missions_ws_idx")
   @@index([status, updated_at], map: "agent_missions_status_idx")
+}
+
+// ===== DSH-V1-01: m4_market_intel (Marketing Intelligence v1.0.0) =====
+// Dashboard menyimpan data yang DIKURASI MANUSIA (V1-K3); data mesin (perusahaan, kontak, skor, KB) ada di MCP.
+// Kontak personal TIDAK disimpan di sini. CHECK constraint, partial unique index & view read model `mcp_products_v`
+// ditulis manual di migrasi SQL 20261109000000_m4_market_intel.
+
+enum product_status {
+  draft
+  active
+  archived
+}
+
+enum opportunity_status {
+  new
+  qualified
+  contacted
+  meeting
+  proposal
+  won
+  lost
+  dropped
+}
+
+enum opportunity_priority {
+  high
+  medium
+  low
+}
+
+enum marketing_action_status {
+  planned
+  in_progress
+  done
+  cancelled
+}
+
+enum strategy_status {
+  draft
+  in_review
+  approved
+  rejected
+}
+
+enum content_platform {
+  instagram
+  tiktok
+  linkedin
+  x
+  threads
+}
+
+enum content_status {
+  draft
+  approved
+  rejected
+  scheduled
+  published
+}
+
+enum approval_subject {
+  product_analysis
+  keyword_set
+  strategy
+  content_batch
+  knowledge_card
+  doctrine
+  contact_batch
+  import_review
+  mission_plan
+}
+
+enum approval_status {
+  pending
+  approved
+  rejected
+  revise
+}
+
+enum upload_kind {
+  pdf
+  xlsx
+  csv
+}
+
+enum upload_purpose {
+  book
+  brand
+  import
+}
+
+model products {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id        String         @db.Uuid
+  name                String         @db.VarChar(150)
+  slug                String         @db.VarChar(160)
+  category            String?        @db.VarChar(100)
+  description         String?
+  value_proposition   String?
+  target_notes        String?
+  price_range         String?        @db.VarChar(100)
+  deal_value_estimate Decimal?       @db.Decimal(18, 2)
+  status              product_status @default(draft)
+  created_by          String?        @db.Uuid
+  created_at          DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime       @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at          DateTime?      @db.Timestamptz(6)
+
+  workspace     workspaces         @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator       users?             @relation("product_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  features      product_features[]
+  opportunities opportunities[]
+  strategy_docs strategy_docs[]
+
+  @@index([workspace_id, status], map: "products_ws_status_idx")
+}
+
+model product_features {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id  String   @db.Uuid
+  name        String   @db.VarChar(150)
+  description String?
+  benefit     String?
+  order_index Int      @default(0)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  product products @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([product_id, order_index], map: "product_features_product_idx")
+}
+
+model opportunities {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id        String                @db.Uuid
+  product_id          String                @db.Uuid
+  mcp_company_id      String                @db.Uuid
+  company_name_cache  String                @db.VarChar(300)
+  latest_score        Decimal?              @db.Decimal(5, 2)
+  priority            opportunity_priority?
+  score_model_version String?               @db.VarChar(32)
+  status              opportunity_status    @default(new)
+  owner_user_id       String?               @db.Uuid
+  next_action_at      DateTime?             @db.Timestamptz(6)
+  notes               String?
+  created_by          String?               @db.Uuid
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime              @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at          DateTime?             @db.Timestamptz(6)
+
+  workspace workspaces           @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product   products             @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  owner     users?               @relation("opportunity_owner", fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  events    opportunity_events[]
+  actions   marketing_actions[]
+
+  @@unique([workspace_id, product_id, mcp_company_id], map: "opportunities_ws_product_company_key")
+  @@index([workspace_id, status, updated_at(sort: Desc)], map: "opportunities_ws_status_idx")
+}
+
+model opportunity_events {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  opportunity_id String              @db.Uuid
+  event_type     String              @db.VarChar(32)
+  from_status    opportunity_status?
+  to_status      opportunity_status?
+  payload        Json                @default("{}")
+  actor_type     actor_type
+  actor_id       String?             @db.Uuid
+  created_at     DateTime            @default(now()) @db.Timestamptz(6)
+
+  opportunity opportunities @relation(fields: [opportunity_id], references: [id], onDelete: Cascade)
+
+  @@index([opportunity_id, created_at(sort: Desc)], map: "opportunity_events_opp_idx")
+}
+
+model marketing_actions {
+  id              String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id    String                  @db.Uuid
+  opportunity_id  String?                 @db.Uuid
+  strategy_doc_id String?                 @db.Uuid
+  content_item_id String?                 @db.Uuid
+  title           String                  @db.VarChar(200)
+  channel         String                  @db.VarChar(48)
+  status          marketing_action_status @default(planned)
+  task_id         String?                 @db.Uuid
+  result          String?
+  created_by      String?                 @db.Uuid
+  created_at      DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime                @default(now()) @updatedAt @db.Timestamptz(6)
+
+  workspace    workspaces     @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  opportunity  opportunities? @relation(fields: [opportunity_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  strategy_doc strategy_docs? @relation(fields: [strategy_doc_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  content_item content_items? @relation(fields: [content_item_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task         tasks?         @relation("marketing_action_task", fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator      users?         @relation("marketing_action_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([workspace_id, status], map: "marketing_actions_ws_idx")
+}
+
+model strategy_docs {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id  String          @db.Uuid
+  product_id    String          @db.Uuid
+  intel_job_id  String?         @db.Uuid
+  mcp_report_id String?         @db.VarChar(32)
+  title         String          @db.VarChar(200)
+  version       Int             @default(1)
+  status        strategy_status @default(draft)
+  created_by    String?         @db.Uuid
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime        @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at    DateTime?       @db.Timestamptz(6)
+
+  workspace     workspaces          @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product       products            @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  intel_job     intel_jobs?         @relation("strategy_doc_job", fields: [intel_job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator       users?              @relation("strategy_doc_creator", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  content_items content_items[]
+  actions       marketing_actions[]
+
+  @@index([workspace_id, product_id, created_at(sort: Desc)], map: "strategy_docs_ws_product_idx")
+}
+
+model content_items {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id    String           @db.Uuid
+  strategy_doc_id String           @db.Uuid
+  mcp_batch_id    String?          @db.VarChar(32)
+  mcp_item_ref    String?          @db.VarChar(32)
+  platform        content_platform
+  format          String           @db.VarChar(32)
+  pillar          String           @db.VarChar(100)
+  funnel_stage    String           @db.VarChar(32)
+  segment         String?          @db.VarChar(100)
+  hook            String
+  caption         String
+  cta             String           @db.VarChar(200)
+  hashtags        String[]         @default([])
+  visual_brief    String           @default("")
+  framework_refs  Json             @default("[]")
+  insight_refs    Json             @default("[]")
+  eval_score      Float?
+  eval_reason     String?
+  status          content_status   @default(draft)
+  scheduled_at    DateTime?        @db.Timestamptz(6)
+  published_url   String?
+  task_id         String?          @db.Uuid
+  version         Int              @default(1)
+  edited_by       String?          @db.Uuid
+  created_at      DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
+  deleted_at      DateTime?        @db.Timestamptz(6)
+
+  workspace    workspaces          @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  strategy_doc strategy_docs       @relation(fields: [strategy_doc_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  task         tasks?              @relation("content_item_task", fields: [task_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  editor       users?              @relation("content_item_editor", fields: [edited_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  actions      marketing_actions[]
+
+  @@unique([workspace_id, mcp_item_ref], map: "content_items_ws_item_ref_key")
+  @@index([workspace_id, status, scheduled_at], map: "content_items_ws_status_idx")
+  @@index([strategy_doc_id], map: "content_items_strategy_idx")
+}
+
+model approvals {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id       String           @db.Uuid
+  subject_type       approval_subject
+  subject_ref        String           @db.VarChar(64)
+  intel_job_id       String?          @db.Uuid
+  mcp_review_id      String?          @unique(map: "approvals_mcp_review_key") @db.VarChar(16)
+  summary            String?
+  non_blocking       Boolean          @default(false)
+  status             approval_status  @default(pending)
+  requested_by_agent String?          @db.VarChar(100)
+  decided_by         String?          @db.Uuid
+  decided_at         DateTime?        @db.Timestamptz(6)
+  comment            String?
+  created_at         DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
+
+  workspace workspaces  @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  intel_job intel_jobs? @relation("approval_job", fields: [intel_job_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  decider   users?      @relation("approval_decider", fields: [decided_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([workspace_id, status, created_at(sort: Desc)], map: "approvals_ws_status_idx")
+}
+
+model upload_refs {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id  String         @db.Uuid
+  kind          upload_kind
+  mcp_upload_id String         @unique(map: "upload_refs_mcp_upload_key") @db.VarChar(16)
+  filename      String         @db.VarChar(255)
+  size          BigInt
+  sha256        String?        @db.Char(64)
+  uploaded_by   String?        @db.Uuid
+  purpose       upload_purpose
+  status_cache  String         @default("stored") @db.VarChar(24)
+  created_at    DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime       @default(now()) @updatedAt @db.Timestamptz(6)
+
+  workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  uploader  users?     @relation("upload_uploader", fields: [uploaded_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([workspace_id, purpose, created_at(sort: Desc)], map: "upload_refs_ws_idx")
+}
+
+model saved_views {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id String   @db.Uuid
+  user_id      String   @db.Uuid
+  page         String   @db.VarChar(48)
+  name         String   @db.VarChar(100)
+  filters      Json     @default("{}")
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  workspace workspaces @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user      users      @relation("saved_view_owner", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([workspace_id, user_id, page, name], map: "saved_views_owner_page_name_key")
 }

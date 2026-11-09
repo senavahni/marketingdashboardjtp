@@ -1,0 +1,21 @@
+{
+  "name": "invalid_review_revise_without_comment",
+  "schema": "job_review_input",
+  "valid": false,
+  "payload": {
+    "workspace_id": "11111111-1111-4111-8111-111111111111",
+    "mcp_job_id": "j_0123456789",
+    "review_id": "r_abc123def4",
+    "decision": "revise",
+    "edits": {
+      "segments": [
+        "SMK"
+      ]
+    },
+    "decided_by": {
+      "user_id": "33333333-3333-4333-8333-333333333333",
+      "name": "Owner Demo"
+    }
+  },
+  "expect_path": "comment"
+}

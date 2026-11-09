@@ -3,6 +3,7 @@ import { Prisma, workspace_role } from '../../generated/prisma/client';
 import { extractPlainText, validateBlockContent } from '../../shared/schemas/block.schema';
 import { SEED_IDS } from './seed-ids';
 import { assertNotProduction, createScriptClient } from './seed-client';
+import { seedProducts } from './seed-products';
 
 /**
  * Seed data demo (idempotent) — sesuai M1_ARCHITECTURE §10.
@@ -128,6 +129,8 @@ async function main(): Promise<void> {
       update: {},
     });
   }
+
+  await seedProducts(prisma);
 
   await prisma.$disconnect();
   // eslint-disable-next-line no-console

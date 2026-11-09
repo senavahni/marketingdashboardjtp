@@ -37,7 +37,7 @@ export function IntelMissionsPage() {
           description="Beri perintah, tujuan, dan timeline. Agent menyusun task & subtask di Penjadwalan dan menandai bagian yang bisa ia kerjakan."
           actions={
             canCreate && (
-              <button type="button" className={primaryBtn} onClick={() => setFormKey(Date.now())}>
+              <button type="button" data-tour="mission-new" className={primaryBtn} onClick={() => setFormKey(Date.now())}>
                 <Send size={15} /> Perintah ke Agent
               </button>
             )
@@ -53,7 +53,7 @@ export function IntelMissionsPage() {
             <p className="max-w-sm text-[13px]">Mulai dengan perintah seperti "Siapkan kampanye Harbolnas di Instagram & X dalam 2 minggu".</p>
           </EmptyState>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" data-tour="mission-list">
             {missions.data.map((m) => {
               const counts = planCounts(m.plan);
               const href = m.source === 'intel_job' && m.intel_job_id ? `${base}/${m.intel_job_id}` : `${base}/missions/${m.id}`;

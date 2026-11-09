@@ -1,0 +1,13 @@
+{
+  "name": "valid_upload_accepted",
+  "schema": "upload_accepted",
+  "valid": true,
+  "payload": {
+    "upload_id": "u_abc123def4",
+    "kind": "pdf",
+    "filename": "buku.pdf",
+    "size": 104857600,
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "status": "stored"
+  }
+}

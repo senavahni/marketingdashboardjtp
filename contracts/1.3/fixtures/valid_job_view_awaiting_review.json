@@ -1,0 +1,46 @@
+{
+  "name": "valid_job_view_awaiting_review",
+  "schema": "job_view",
+  "valid": true,
+  "payload": {
+    "mcp_job_id": "j_0123456789",
+    "dashboard_job_id": "22222222-2222-4222-8222-222222222222",
+    "kind": "company_discovery",
+    "status": "awaiting_review",
+    "stages": [
+      {
+        "stage": "product_analysis",
+        "agent_key": "analyst",
+        "status": "awaiting_review",
+        "progress": {
+          "done": 1,
+          "total": 1
+        },
+        "review": {
+          "review_id": "r_abc123def4",
+          "subject_type": "product_analysis",
+          "subject_ref": "pa_abc123def4",
+          "summary": "3 industri, 4 segmen",
+          "non_blocking": false
+        }
+      },
+      {
+        "stage": "discovery",
+        "agent_key": "prospector",
+        "status": "pending",
+        "progress": {
+          "done": 12,
+          "total": 50
+        }
+      }
+    ],
+    "cost": {
+      "llm_tokens": 1000,
+      "usd_llm": 0.01,
+      "external_units": 0,
+      "usd_external": 0,
+      "by_stage": [],
+      "budget_usd": 2.5
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "valid_ct_batch",
+  "schema": "ct_batch",
+  "valid": true,
+  "payload": {
+    "batch_id": "cb_abc123def4",
+    "strategy_report_id": "sr_abc123def4",
+    "items": [
+      {
+        "item_ref": "ci_abc123def4",
+        "platform": "instagram",
+        "format": "carousel",
+        "pillar": "Edukasi",
+        "funnel_stage": "awareness",
+        "segment": "SMK",
+        "hook": "Laporan sekolah masih manual?",
+        "caption": "Lima langkah digitalisasi laporan ...",
+        "cta": "Unduh panduan",
+        "hashtags": [
+          "#sekolahdigital",
+          "edtech"
+        ],
+        "visual_brief": "Carousel 5 slide, ilustrasi guru & dasbor",
+        "framework_refs": [
+          {
+            "card_id": "kc_abc123def4",
+            "card_title": "AIDA",
+            "book_title": "Buku Marketing",
+            "page": 42
+          }
+        ],
+        "insight_refs": [
+          {
+            "kind": "segment",
+            "ref": "sg_abc123def4",
+            "label": "SMK negeri"
+          }
+        ],
+        "eval_score": 0.82,
+        "eval_reason": "Hook kuat, CTA jelas"
+      }
+    ]
+  }
+}
