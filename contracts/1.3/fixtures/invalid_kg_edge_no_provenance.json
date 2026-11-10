@@ -1,0 +1,37 @@
+{
+  "name": "invalid_kg_edge_no_provenance",
+  "schema": "kg_graph",
+  "valid": false,
+  "payload": {
+    "nodes": [
+      {
+        "node_id": "kn_aida000001",
+        "label": "AIDA",
+        "type": "framework",
+        "definition": "AIDA — kerangka dari Buku Marketing"
+      },
+      {
+        "node_id": "kn_hook000001",
+        "label": "Hook",
+        "type": "concept",
+        "definition": null
+      },
+      {
+        "node_id": "kn_smk0000001",
+        "label": "SMK negeri",
+        "type": "segment",
+        "definition": null
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "ke_000000001a",
+        "source": "kn_aida000001",
+        "target": "kn_hook000001",
+        "relation": "memuat"
+      }
+    ],
+    "truncated": false
+  },
+  "expect_path": "edges.0.provenance"
+}

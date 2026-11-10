@@ -1,0 +1,40 @@
+{
+  "name": "valid_doctrine",
+  "schema": "doctrine",
+  "valid": true,
+  "payload": {
+    "role": "creative",
+    "active": {
+      "version": 1,
+      "text": "Doktrin creative v1:\n- Mulai dengan hook yang spesifik.\n- Satu CTA per konten.",
+      "tokens": 450,
+      "card_ids": [
+        "kc_abc123def4"
+      ],
+      "created_at": "2026-11-10T02:00:00Z",
+      "approved_at": "2026-11-10T02:00:00Z"
+    },
+    "pending": {
+      "version": 2,
+      "text": "Doktrin creative v2:\n- Mulai dengan hook yang spesifik.\n- Satu CTA per konten.\n- Sesuaikan format dengan platform.",
+      "tokens": 480,
+      "card_ids": [
+        "kc_abc123def4"
+      ],
+      "created_at": "2026-11-10T02:00:00Z",
+      "approved_at": null
+    },
+    "history": [
+      {
+        "version": 2,
+        "status": "pending",
+        "created_at": "2026-11-10T02:00:00Z"
+      },
+      {
+        "version": 1,
+        "status": "active",
+        "created_at": "2026-11-10T02:00:00Z"
+      }
+    ]
+  }
+}

@@ -4,6 +4,17 @@
  */
 
 export type Capability = 'collect' | 'analyze' | 'index';
+/** Kapabilitas yang dilaporkan profil agent MCP: tahap 1.2 + kapabilitas job kind 1.3 (MCP-V1-03). */
+export type AgentCapability =
+  | Capability
+  | 'analyze_product'
+  | 'discover'
+  | 'enrich'
+  | 'import_map'
+  | 'find_contacts'
+  | 'extract_knowledge'
+  | 'strategize'
+  | 'create_content';
 export type SelectableStage = 'collect' | 'analyze' | 'index';
 export type KeySource = 'agent' | 'system' | 'env';
 export type SourceType = 'x' | 'threads' | 'web' | 'trends';
@@ -38,7 +49,7 @@ export type IntelAgent = {
   id: string;
   name: string;
   mcp_agent_key: string;
-  capabilities: Capability[];
+  capabilities: AgentCapability[];
   toolsets?: string[];
   is_active?: boolean;
   route?: string;
@@ -52,7 +63,7 @@ export type McpProfile = {
   agent_key: string;
   display_name: string;
   is_active: boolean;
-  capabilities: Capability[];
+  capabilities: AgentCapability[];
   used_by: { id: string; name: string } | null;
 };
 
@@ -314,7 +325,19 @@ export type JobUpdatedEvent = {
   sample_tokens?: string[];
 };
 
-export const CAPABILITY_LABEL: Record<Capability, string> = { collect: 'Kumpulkan', analyze: 'Analisis', index: 'Indeks' };
+export const CAPABILITY_LABEL: Record<AgentCapability, string> = {
+  collect: 'Kumpulkan',
+  analyze: 'Analisis',
+  index: 'Indeks',
+  analyze_product: 'Analisis produk',
+  discover: 'Discovery',
+  enrich: 'Enrichment',
+  import_map: 'Mapping import',
+  find_contacts: 'Cari kontak',
+  extract_knowledge: 'Ekstraksi pengetahuan',
+  strategize: 'Strategi',
+  create_content: 'Buat konten',
+};
 export const STAGE_LABEL: Record<SelectableStage, string> = {
   collect: 'Kumpulkan data',
   analyze: 'Analisis',

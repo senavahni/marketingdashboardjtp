@@ -1,0 +1,17 @@
+{
+  "name": "valid_pb_list",
+  "schema": "pb_list",
+  "valid": true,
+  "payload": {
+    "playbooks": [
+      {
+        "playbook_id": "pb_abc123def4",
+        "name": "Analisis segmen sekolah",
+        "role": "analyst",
+        "version": 2,
+        "updated_at": "2026-11-10T02:00:00Z",
+        "last_run_at": null
+      }
+    ]
+  }
+}

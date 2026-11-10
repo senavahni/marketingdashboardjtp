@@ -1,0 +1,43 @@
+{
+  "name": "valid_kn_card_list",
+  "schema": "kn_card_list",
+  "valid": true,
+  "payload": {
+    "items": [
+      {
+        "card_id": "kc_abc123def4",
+        "asset_id": "ka_abc123def4",
+        "book_title": "Buku Marketing",
+        "card_type": "framework",
+        "title": "AIDA",
+        "body": "Attention → Interest → Desire → Action. Gunakan hook yang memicu perhatian sebelum menjelaskan manfaat.",
+        "page_from": 42,
+        "page_to": 44,
+        "roles": [
+          "strategist",
+          "creative"
+        ],
+        "status": "draft",
+        "version": 1
+      },
+      {
+        "card_id": "kc_bcd234efg5",
+        "asset_id": "ka_abc123def4",
+        "book_title": "Buku Marketing",
+        "card_type": "anti_pattern",
+        "title": "Terlalu banyak CTA",
+        "body": "Attention → Interest → Desire → Action. Gunakan hook yang memicu perhatian sebelum menjelaskan manfaat.",
+        "page_from": 42,
+        "page_to": 44,
+        "roles": [
+          "strategist",
+          "creative"
+        ],
+        "status": "approved",
+        "version": 1
+      }
+    ],
+    "next_cursor": null,
+    "total_estimate": 2
+  }
+}

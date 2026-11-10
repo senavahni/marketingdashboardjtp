@@ -30,12 +30,16 @@ import {
   ctBatchGetInputSchema,
   dataExportInputSchema,
   knAssetListInputSchema,
+  MCP_TOOLS_13,
   McpTool13,
   miKpisInputSchema,
   oppExplainInputSchema,
   oppListInputSchema,
 } from '../shared/schemas/intel-1.3-tools.schema';
 import { jobRefInputSchema } from '../shared/schemas/intel.schema';
+import { createWorkflowTools } from './mock-mcp-13-workflow';
+
+type AllTools = Record<McpTool13, ToolDef>;
 
 export interface MockMcp13Options {
   apiKey: string;
@@ -64,7 +68,7 @@ interface ToolDef {
 
 const mcpId = (prefix: string) => `${prefix}_${randomBytes(5).toString('hex')}`;
 
-const TOOLS: Record<McpTool13, ToolDef> = {
+const TOOLS: Record<(typeof MCP_TOOLS_13)[number], ToolDef> = {
   intel_job_estimate: {
     input: jobEstimate13InputSchema,
     output: (args) => ({ ...fixture('valid_estimate'), kind: (args.spec as { kind: string }).kind }),
@@ -109,13 +113,13 @@ function toolResult(payload: Record<string, unknown>, isError = false) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(payload) }], structuredContent: payload, isError };
 }
 
-function buildMcpServer(opts: MockMcp13Options, stats: MockMcp13['stats'], jobs: Map<string, { dashboardJobId: string; kind: string }>): Server {
+function buildMcpServer(opts: MockMcp13Options, stats: MockMcp13['stats'], jobs: Map<string, { dashboardJobId: string; kind: string }>, tools: AllTools): Server {
   const server = new Server({ name: 'mock-mcp-1.3', version: '1.3.0' }, { capabilities: { tools: {} } });
   server.setRequestHandler(ListToolsRequestSchema, () => ({
-    tools: Object.keys(TOOLS).map((name) => ({ name, inputSchema: { type: 'object' as const } })),
+    tools: Object.keys(tools).map((name) => ({ name, inputSchema: { type: 'object' as const } })),
   }));
   server.setRequestHandler(CallToolRequestSchema, (req) => {
-    const tool = TOOLS[req.params.name as McpTool13];
+    const tool = tools[req.params.name as McpTool13];
     const args = (req.params.arguments ?? {}) as Record<string, unknown>;
     stats.calls.push({ tool: req.params.name, args });
     if (!tool) return toolResult({ code: 'NOT_FOUND', message: `tool ${req.params.name} tidak ada`, retryable: false }, true);
@@ -168,6 +172,7 @@ function handleUpload(req: IncomingMessage, res: ServerResponse, stats: MockMcp1
 export async function startMockMcp13(opts: MockMcp13Options): Promise<MockMcp13> {
   const stats: MockMcp13['stats'] = { uploads: 0, maxChunkBytes: 0, calls: [] };
   const jobs = new Map<string, { dashboardJobId: string; kind: string }>();
+  const tools: AllTools = { ...TOOLS, ...createWorkflowTools() };
   const http: HttpServer = createServer((req, res) => {
     if (req.headers.authorization !== `Bearer ${opts.apiKey}`) {
       sendJson(res, 401, { code: 'UNAUTHENTICATED', message: 'key tidak valid', retryable: false });
@@ -181,7 +186,7 @@ export async function startMockMcp13(opts: MockMcp13Options): Promise<MockMcp13>
       return;
     }
     if (path === '/mcp') {
-      const server = buildMcpServer(opts, stats, jobs);
+      const server = buildMcpServer(opts, stats, jobs, tools);
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
       res.on('close', () => {
         void transport.close();

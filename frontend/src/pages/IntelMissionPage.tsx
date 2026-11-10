@@ -12,7 +12,7 @@ export function IntelMissionPage() {
   const { workspace } = useOutletContext<{ workspace: WorkspaceSummary }>();
   const { missionId = '' } = useParams();
   const { data: mission, isLoading, error } = useMission(missionId);
-  const back = `/w/${workspace.id}/intel/missions`;
+  const back = `/w/${workspace.id}/agents/missions`;
 
   if (isLoading) return <FullPageSpinner />;
   if (!mission)

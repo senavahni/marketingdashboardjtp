@@ -1,0 +1,9 @@
+{
+  "name": "valid_import_row_decision",
+  "schema": "import_row_decision",
+  "valid": true,
+  "payload": {
+    "row_id": "ir_abc123def4",
+    "status": "merged"
+  }
+}

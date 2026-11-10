@@ -1,0 +1,13 @@
+{
+  "name": "valid_import_rollback_preview",
+  "schema": "import_rollback",
+  "valid": true,
+  "payload": {
+    "batch_id": "ib_abc123def4",
+    "dry_run": true,
+    "companies_deleted": 640,
+    "merges_reverted": 42,
+    "kept_in_use": 12,
+    "status": "completed"
+  }
+}

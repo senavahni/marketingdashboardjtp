@@ -1,0 +1,33 @@
+{
+  "name": "invalid_cf_target_bad_status",
+  "schema": "cf_target_list",
+  "valid": false,
+  "payload": {
+    "items": [
+      {
+        "target_id": "cf_abc123def4",
+        "company_id": "55555555-5555-4555-8555-555555555555",
+        "name": "SMA Harapan Cimahi",
+        "kbli_code": "85",
+        "region_name": "Kota Cimahi",
+        "priority": 2,
+        "hint": {
+          "city": "Cimahi"
+        },
+        "status": "lost",
+        "attempts": 1,
+        "candidates": [],
+        "found": null,
+        "last_attempt_at": "2026-11-10T02:00:00Z"
+      }
+    ],
+    "next_cursor": null,
+    "total_estimate": 1,
+    "summary": {
+      "counts": {},
+      "eta_seconds": null,
+      "paused": null
+    }
+  },
+  "expect_path": "items.0.status"
+}

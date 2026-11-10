@@ -303,9 +303,9 @@ const STEPS: TourStep[] = [
 function tourDestination(page: Page, workspaceId: string, projectId: string | undefined): string {
   if (page === 'home') return `/w/${workspaceId}`;
   if (page === 'web-report') return `/w/${workspaceId}/web-report`;
-  if (page === 'intel') return `/w/${workspaceId}/intel`;
-  if (page === 'intel-sources') return `/w/${workspaceId}/intel/sources`;
-  if (page === 'intel-missions') return `/w/${workspaceId}/intel/missions`;
+  if (page === 'intel') return `/w/${workspaceId}/agents`;
+  if (page === 'intel-sources') return `/w/${workspaceId}/data/sources`;
+  if (page === 'intel-missions') return `/w/${workspaceId}/agents/missions`;
   return `/w/${workspaceId}/p/${projectId}?view=${page}`;
 }
 

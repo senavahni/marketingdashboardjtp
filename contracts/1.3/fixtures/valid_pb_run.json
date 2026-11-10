@@ -1,0 +1,9 @@
+{
+  "name": "valid_pb_run",
+  "schema": "pb_run",
+  "valid": true,
+  "payload": {
+    "run_id": "pr_bcd234efg5",
+    "status": "queued"
+  }
+}

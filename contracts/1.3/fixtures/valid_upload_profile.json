@@ -1,0 +1,44 @@
+{
+  "name": "valid_upload_profile",
+  "schema": "upload_profile",
+  "valid": true,
+  "payload": {
+    "upload_id": "u_abc123def4",
+    "sheets": [
+      {
+        "name": "Sekolah",
+        "rows_estimate": 1000,
+        "headers": [
+          "Nama Sekolah",
+          "Alamat Lengkap",
+          "Kab/Kota",
+          "Telp",
+          "Catatan"
+        ],
+        "preview": [
+          [
+            "SMK Negeri 1 Bandung",
+            "Jl. Wastukencana 3",
+            "Kota Bandung",
+            "022-4206800",
+            ""
+          ]
+        ]
+      },
+      {
+        "name": "Ringkasan",
+        "rows_estimate": 4,
+        "headers": [
+          "Wilayah",
+          "Jumlah"
+        ],
+        "preview": [
+          [
+            "Bandung",
+            "412"
+          ]
+        ]
+      }
+    ]
+  }
+}

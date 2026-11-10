@@ -1,0 +1,20 @@
+{
+  "name": "valid_kn_search",
+  "schema": "kn_search",
+  "valid": true,
+  "payload": {
+    "results": [
+      {
+        "chunk_id": "kh_abc123def4",
+        "text": "Hook yang baik membuat pembaca berhenti menggulir…",
+        "citation": {
+          "asset_id": "ka_abc123def4",
+          "book_title": "Buku Marketing",
+          "page": 87,
+          "chapter": "Bab 4 — Konten"
+        },
+        "score": 0.83
+      }
+    ]
+  }
+}

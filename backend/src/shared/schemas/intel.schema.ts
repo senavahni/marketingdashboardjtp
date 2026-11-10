@@ -48,6 +48,8 @@ export const INTEL_STAGE_STATUSES = ['pending', 'running', 'completed', 'skipped
 export const INTEL_TERMINAL_STATUSES = ['completed', 'failed', 'cancelled'] as const;
 export const SENTIMENTS = ['positive', 'neutral', 'negative'] as const;
 export const CAPABILITIES = ['collect', 'analyze', 'index'] as const;
+/** Kapabilitas tahap kontrak 1.3 (MCP-V1-03) — aditif: profil agent boleh melaporkannya tanpa menggagalkan intel_agents_list. */
+export const CAPABILITIES_13 = ['analyze_product', 'discover', 'enrich', 'import_map', 'find_contacts', 'extract_knowledge', 'strategize', 'create_content'] as const;
 
 const stage = z.enum(INTEL_STAGES);
 const sourceType = z.enum(INTEL_SOURCE_TYPES);
@@ -219,7 +221,7 @@ export const agentInfoSchema = z.object({
   route: z.string(),
   run_token_budget: z.number().int(),
   toolsets: z.array(z.string()),
-  capabilities: z.array(z.enum(CAPABILITIES)),
+  capabilities: z.array(z.enum([...CAPABILITIES, ...CAPABILITIES_13])),
   gateway_key: z.object({ source: z.enum(['agent', 'system', 'env']), prefix: z.string().nullable().optional() }),
 });
 export const agentsListSchema = z.object({ agents: z.array(agentInfoSchema) });

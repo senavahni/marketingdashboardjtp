@@ -104,7 +104,7 @@ export class Jobs13Service {
     const query = jobs13QuerySchema.parse(raw);
     const offset = decodeCursor(query.cursor);
     const rows = await this.prisma.intel_jobs.findMany({
-      where: { workspace_id: workspaceId, deleted_at: null, kind: query.kind, ...(query.status ? { status: query.status } : {}) },
+      where: { workspace_id: workspaceId, deleted_at: null, kind: query.kind === 'all' ? { not: null } : query.kind, ...(query.status ? { status: query.status } : {}) },
       orderBy: { created_at: 'desc' },
       skip: offset,
       take: query.limit + 1,

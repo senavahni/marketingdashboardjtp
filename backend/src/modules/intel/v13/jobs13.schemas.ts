@@ -7,7 +7,8 @@ export const createJob13Schema = z.strictObject({ spec: jobSpec13Schema, confirm
 export type CreateJob13Input = z.infer<typeof createJob13Schema>;
 
 export const jobs13QuerySchema = z.strictObject({
-  kind: z.enum(JOB_KINDS),
+  /** `all` = semua kind 1.3 (Agent Workspace); tanpa parameter kind = job sosial Modul 3. */
+  kind: z.enum([...JOB_KINDS, 'all']),
   status: z.enum(['queued', 'running', 'awaiting_review', 'paused', 'completed', 'failed', 'cancelling', 'cancelled']).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   cursor: z.string().max(200).optional(),

@@ -40,7 +40,7 @@ export function IntelPage() {
   const agentName = (id: string) => agents?.find((a) => a.id === id)?.name;
   const canCreate = workspace.role !== 'viewer';
   const openWizard = () => setWizardKey(Date.now());
-  const base = `/w/${workspace.id}/intel`;
+  const base = `/w/${workspace.id}/agents`;
 
   if (isIntelDisabled(jobs.error)) {
     return (
@@ -66,7 +66,7 @@ export function IntelPage() {
           actions={
             <>
               <Link
-                to={`${base}/sources`}
+                to={`/w/${workspace.id}/data/sources`}
                 data-tour="intel-sources"
                 className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line-strong bg-white px-3 text-sm font-medium text-ink hover:bg-hover"
               >
@@ -170,7 +170,7 @@ export function IntelPage() {
               </thead>
               <tbody>
                 {list.map((job) => (
-                  <JobRow key={job.id} job={job} agentName={agentName} onOpen={() => navigate(`${base}/${job.id}`)} />
+                  <JobRow key={job.id} job={job} agentName={agentName} onOpen={() => navigate(`${base}/jobs/${job.id}`)} />
                 ))}
               </tbody>
             </table>
@@ -191,7 +191,7 @@ export function IntelPage() {
           workspaceId={workspace.id}
           open
           onOpenChange={(o) => !o && setWizardKey(null)}
-          onCreated={(id) => navigate(`${base}/${id}`)}
+          onCreated={(id) => navigate(`${base}/jobs/${id}`)}
         />
       )}
     </div>

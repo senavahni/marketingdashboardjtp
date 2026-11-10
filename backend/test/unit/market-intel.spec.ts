@@ -21,6 +21,9 @@ import { OpportunitiesService } from '../../src/modules/market-intel/opportuniti
 import { ProductsService } from '../../src/modules/market-intel/products.service';
 import { slugify } from '../../src/modules/market-intel/products.schemas';
 import { UploadsService } from '../../src/modules/market-intel/uploads.service';
+import { ImportService } from '../../src/modules/market-intel/import.service';
+import { KnowledgeService } from '../../src/modules/market-intel/knowledge.service';
+import { WorkflowController } from '../../src/modules/market-intel/workflow.controller';
 import { companyProfileSchema } from '../../src/shared/schemas/intel-1.3-tools.schema';
 
 const profile = companyProfileSchema.parse(
@@ -98,8 +101,8 @@ describe('aturan workflow', () => {
 });
 
 @Module({
-  controllers: [CatalogController, IntelDataController, IntelController],
-  providers: [ProductsService, OpportunitiesService, ContentService, ApprovalsService, IntelProxyService, UploadsService, ExportsService, IntelService, Jobs13Service].map((provide) => ({ provide, useValue: {} })),
+  controllers: [CatalogController, IntelDataController, IntelController, WorkflowController],
+  providers: [ProductsService, OpportunitiesService, ContentService, ApprovalsService, IntelProxyService, UploadsService, ExportsService, IntelService, Jobs13Service, ImportService, KnowledgeService].map((provide) => ({ provide, useValue: {} })),
 })
 class MarketIntelSwaggerModule {}
 
@@ -135,6 +138,19 @@ describe('Swagger v1.0.0', () => {
         'intel/jobs',
         'intel/jobs/{id}/review',
         'intel/jobs/{id}/resume',
+        'uploads/{uploadId}/profile',
+        'ci/imports',
+        'ci/imports/{batchId}/rows/{rowId}/decision',
+        'ci/imports/{batchId}/rollback',
+        'ci/contact-targets',
+        'ci/contact-targets/{targetId}',
+        'kn/search',
+        'kn/cards/decisions',
+        'kn/doctrines/{role}/decision',
+        'kn/playbooks/{id}/versions',
+        'kn/playbooks/{id}/runs',
+        'kg/graph',
+        'kg/nodes/{nodeId}/neighbors',
       ]) {
         expect(doc.paths).toHaveProperty(`${ws}/${path}`);
       }

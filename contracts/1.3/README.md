@@ -6,6 +6,9 @@ Aditif terhadap `intel-1.2` (tool & event 1.2 tidak berubah). Task: DSH-V1-00 / 
 |---|---|
 | Job kind, parameter per kind, `llm_assist`, `budget_usd`, status `awaiting_review`/`paused`, review & resume, event, pagination, error | `backend/src/shared/schemas/intel-1.3.schema.ts` |
 | Toolset baca `mi_*`, `ci_*`, `opp_*`, `ct_*`, `kn_*`, `data_export`, respons `POST /uploads` | `backend/src/shared/schemas/intel-1.3-tools.schema.ts` |
+| Import & Contact Finder: `ci_upload_profile`, `ci_import_batches/batch_get/rows/row_decide/rollback`, `cf_targets`, `cf_target_update` (DSH-V1-06 ↔ MCP-V1-08) | `backend/src/shared/schemas/intel-1.3-import.schema.ts` |
+| Knowledge: `kn_search`, `kn_cards`, `kn_card_decide/update`, `kn_doctrine_get/decide`, `pb_list/get/save/run`, `kg_search`, `kg_neighbors` (DSH-V1-09 ↔ MCP-V1-11..13) | `backend/src/shared/schemas/intel-1.3-knowledge.schema.ts` |
+| Kapabilitas agent 1.3 (`analyze_product`, `discover`, `enrich`, `import_map`, `find_contacts`, `extract_knowledge`, `strategize`, `create_content`) diterima `intel_agents_list` | `backend/src/shared/schemas/intel.schema.ts` (`CAPABILITIES_13`) |
 
 **Status:** draf Dashboard (9 Nov 2026). Fixture dibangkitkan dari `backend/src/scripts/export-contract-13-fixtures.ts`
 (`npm run contract:fixtures`). Repo MCP menyalin folder ini apa adanya, menulis model Pydantic padanannya, dan

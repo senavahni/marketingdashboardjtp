@@ -1,0 +1,32 @@
+{
+  "name": "valid_import_row_list",
+  "schema": "import_row_list",
+  "valid": true,
+  "payload": {
+    "items": [
+      {
+        "row_id": "ir_abc123def4",
+        "row_no": 18,
+        "raw": {
+          "Nama Sekolah": "SMKN 1 Bdg",
+          "Alamat Lengkap": "Jl. Wastukencana 3",
+          "Kab/Kota": "Bandung"
+        },
+        "status": "review",
+        "issues": [
+          "Mirip perusahaan yang sudah ada"
+        ],
+        "candidates": [
+          {
+            "company_id": "55555555-5555-4555-8555-555555555555",
+            "name": "SMK Negeri 1 Bandung",
+            "address": "Jl. Wastukencana No. 3, Bandung",
+            "similarity": 0.88
+          }
+        ]
+      }
+    ],
+    "next_cursor": null,
+    "total_estimate": 9
+  }
+}

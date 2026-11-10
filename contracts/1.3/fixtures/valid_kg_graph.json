@@ -1,0 +1,54 @@
+{
+  "name": "valid_kg_graph",
+  "schema": "kg_graph",
+  "valid": true,
+  "payload": {
+    "nodes": [
+      {
+        "node_id": "kn_aida000001",
+        "label": "AIDA",
+        "type": "framework",
+        "definition": "AIDA — kerangka dari Buku Marketing"
+      },
+      {
+        "node_id": "kn_hook000001",
+        "label": "Hook",
+        "type": "concept",
+        "definition": null
+      },
+      {
+        "node_id": "kn_smk0000001",
+        "label": "SMK negeri",
+        "type": "segment",
+        "definition": null
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "ke_000000001a",
+        "source": "kn_aida000001",
+        "target": "kn_hook000001",
+        "relation": "memuat",
+        "provenance": {
+          "card_id": "kc_abc123def4",
+          "book_title": "Buku Marketing",
+          "page": 42,
+          "source_url": null
+        }
+      },
+      {
+        "edge_id": "ke_000000002b",
+        "source": "kn_aida000001",
+        "target": "kn_smk0000001",
+        "relation": "diterapkan_pada",
+        "provenance": {
+          "card_id": "kc_abc123def4",
+          "book_title": "Buku Marketing",
+          "page": 42,
+          "source_url": null
+        }
+      }
+    ],
+    "truncated": false
+  }
+}

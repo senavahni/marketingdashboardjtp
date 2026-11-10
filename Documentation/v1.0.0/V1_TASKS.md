@@ -45,13 +45,18 @@ Kepemilikan data (V1-K3): Dashboard menyimpan yang dikurasi manusia — produk, 
 
 **Total ±53 pd.** Jalur kritis: 00 → 01 → 02 → 06/07 → 10 → 11 → 14.
 
-### Status (9 Nov 2026)
+### Status (10 Nov 2026)
 | ID | Status | Catatan |
 |---|---|---|
 | DSH-V1-00 | Selesai | `contracts/1.3/` + schema Zod + contract test; mock MCP 1.3 (`backend/src/scripts/mock-mcp-13.ts`) |
 | DSH-V1-01 | Selesai | Migrasi `20261109000000_m4_market_intel`, seed 2 produk, RBAC baru (`common/constants/permissions.ts`) |
 | DSH-V1-02 | Selesai | Modul `market-intel` + `intel/v13`; Jest 393 lulus; smoke API nyata 30/30 (DB scratch + mock MCP) |
-| DSH-V1-03 | Selesai (menunggu persetujuan PO atas §I) | [V1_TASK_003_UIUX.md](V1_TASK_003_UIUX.md) |
+| DSH-V1-03 | Selesai — **disetujui PO 10 Nov 2026** (§I: 4 keputusan sesuai usulan) | [V1_TASK_003_UIUX.md](V1_TASK_003_UIUX.md) |
+| DSH-V1-04 | Selesai (UI di atas mock MCP; AC penuh menunggu MCP-V1-03) | 6 agent default (bootstrap idempoten), kapabilitas 1.3 aditif, sidebar MI + lencana approval, redirect `/intel/*` → `/agents/*`, komponen bersama `components/mi/`, `JobBanner` (CAPTCHA/budget/model lokal/review/gagal), toggle LLM assist + budget (`JobLimitsFields`), detail job 1.3, antrean approval terpadu |
+| DSH-V1-06 | Selesai di atas mock MCP (menunggu MCP-V1-08) | Kontrak aditif `intel-1.3-import.schema.ts` (`ci_upload_profile`, `ci_import_*`, `cf_*`); layar Import (stepper, mapping, review baris, rollback dgn konfirmasi nama file di server) & Contact Finder (filter, ETA hari, pause CAPTCHA, hint, pilih kandidat, ulang) |
+| DSH-V1-09 | Selesai di atas mock MCP (menunggu MCP-V1-11..13) | Kontrak aditif `intel-1.3-knowledge.schema.ts` (`kn_*`, `pb_*`, `kg_*`); Knowledge Library: Aset (upload + book_ingest, progres 2 fase), Pencarian, Kartu (approve massal), Doktrin (diff, satu per satu), Playbook (versi), KG Explorer (react-force-graph 2D + daftar) |
+
+Verifikasi 10 Nov 2026: Jest backend 440 lulus (contract 1.3 = 115 fixture); Vitest frontend 108 lulus; `vite build` sukses (KG canvas chunk terpisah); smoke API nyata DSH-V1-04/06/09 **32/32** (DB scratch `md_v1_check` + mock MCP). Belum: uji visual di browser, axe/Playwright (DSH-V1-14), E2E dengan MCP asli.
 
 ### Urutan mulai di repo ini
 1. **DSH-V1-00** kontrak 1.3 (bersama MCP).

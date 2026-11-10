@@ -1,4 +1,26 @@
-import { Bot, ChartNoAxesCombined, ChevronsUpDown, GraduationCap, House, LogOut, MoreHorizontal, PanelLeftClose, Plus, Radar, Settings, Trash2 } from 'lucide-react';
+import {
+  Bot,
+  Building2,
+  ChartNoAxesCombined,
+  ChevronsUpDown,
+  Database,
+  Gauge,
+  Globe2,
+  GraduationCap,
+  House,
+  LayoutGrid,
+  Library,
+  LogOut,
+  MoreHorizontal,
+  PanelLeftClose,
+  Plus,
+  Radar,
+  Settings,
+  Sparkles,
+  Target,
+  Trash2,
+} from 'lucide-react';
+import { usePendingApprovalCount } from '../../hooks/mi-queries';
 import { useState } from 'react';
 import { NavLink, useNavigate, useParams } from 'react-router';
 import { useIntelEnabled } from '../../hooks/intel-queries';
@@ -16,6 +38,43 @@ import { SettingsDialog } from '../settings/SettingsDialog';
 import { ActorAvatar } from '../ui/avatar';
 import { IconButton } from '../ui/button';
 import { MenuItem, MenuLabel, Popover } from '../ui/popover';
+
+/** Grup Market Intelligence (V1_TASK_003_UIUX §B.1). Produk ada di Data Management (keputusan PO #2). */
+const MI_NAV = [
+  { path: 'overview', label: 'Executive Overview', icon: Gauge },
+  { path: 'market', label: 'Market Intelligence', icon: Globe2 },
+  { path: 'companies', label: 'Company Intelligence', icon: Building2 },
+  { path: 'opportunities', label: 'Opportunity Center', icon: Target },
+  { path: 'strategy', label: 'AI Strategy Studio', icon: Sparkles },
+  { path: 'content', label: 'Bank Konten', icon: LayoutGrid },
+  { path: 'knowledge', label: 'Knowledge Library', icon: Library },
+  { path: 'data', label: 'Data Management', icon: Database },
+  { path: 'agents', label: 'Agent Workspace', icon: Radar },
+] as const;
+
+function MarketIntelNav({ workspaceId }: { workspaceId: string }) {
+  const pending = usePendingApprovalCount(workspaceId, true);
+  return (
+    <nav aria-label="Market Intelligence" className="mt-4">
+      <div className="px-2 py-1 text-[12px] font-medium text-ink-faint">Market Intelligence</div>
+      {MI_NAV.map(({ path, label, icon: Icon }) => (
+        <NavLink
+          key={path}
+          to={`/w/${workspaceId}/${path}`}
+          data-tour={path === 'agents' ? 'nav-intel' : undefined}
+          className={({ isActive }) => cn('flex items-center gap-2 rounded px-2 py-1 text-ink-soft hover:bg-hover', isActive && 'bg-hover text-ink')}
+        >
+          <Icon size={16} aria-hidden /> <span className="truncate">{label}</span>
+          {path === 'agents' && pending > 0 && (
+            <span className="ml-auto rounded-full bg-[#FEF3E2] px-1.5 text-[11px] font-medium text-[#B45309]" aria-label={`${pending} approval menunggu`}>
+              {pending}
+            </span>
+          )}
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
 
 export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role }) {
   const navigate = useNavigate();
@@ -102,15 +161,6 @@ export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role
         >
           <ChartNoAxesCombined size={16} /> Laporan Website
         </NavLink>
-        {intelEnabled && (
-          <NavLink
-            to={`/w/${workspaceId}/intel`}
-            data-tour="nav-intel"
-            className={({ isActive }) => cn('flex items-center gap-2 rounded px-2 py-1 text-ink-soft hover:bg-hover', isActive && 'bg-hover text-ink')}
-          >
-            <Radar size={16} /> Riset & Insight
-          </NavLink>
-        )}
         <div data-tour="inbox">
           <Inbox />
         </div>
@@ -159,6 +209,8 @@ export function Sidebar({ workspaceId, role }: { workspaceId: string; role: Role
             </button>
           )}
         </div>
+
+        {intelEnabled && <MarketIntelNav workspaceId={workspaceId} />}
 
         <div data-tour="agents" className="mt-4">
           <div className="flex items-center gap-1 px-2 py-1 text-[12px] font-medium text-ink-faint">

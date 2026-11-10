@@ -1,5 +1,7 @@
 import { PanelLeft } from 'lucide-react';
 import { Navigate, Outlet, useParams } from 'react-router';
+import { useIntelEnabled } from '../../hooks/intel-queries';
+import { useMiRealtime } from '../../hooks/mi-queries';
 import { useWorkspaces } from '../../hooks/queries';
 import { useUi } from '../../lib/ui-store';
 import { RealtimeBridge } from '../collab/RealtimeBridge';
@@ -7,6 +9,12 @@ import { ProductTour } from '../tour/ProductTour';
 import { IconButton } from '../ui/button';
 import { FullPageSpinner } from '../ui/misc';
 import { Sidebar } from './Sidebar';
+
+/** Event Socket.IO kontrak 1.3 (room workspace) → cache MI; hanya bila modul Intel aktif. */
+function MiRealtime({ workspaceId }: { workspaceId: string }) {
+  useMiRealtime(workspaceId, useIntelEnabled(workspaceId) === true);
+  return null;
+}
 
 /** Kerangka aplikasi: sidebar workspace + konten. */
 export function AppLayout() {
@@ -20,6 +28,7 @@ export function AppLayout() {
   return (
     <div className="flex h-full">
       <RealtimeBridge />
+      <MiRealtime workspaceId={ws.id} />
       <ProductTour workspaceId={ws.id} />
       {sidebarOpen && <Sidebar workspaceId={ws.id} role={ws.role} />}
       <main className="relative flex min-w-0 flex-1 flex-col">

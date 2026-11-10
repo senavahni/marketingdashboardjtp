@@ -39,7 +39,7 @@ export function IntelSourcesPage() {
   return (
     <div className="h-full overflow-y-auto bg-[linear-gradient(180deg,#F5F7FA_0,#fff_280px)]">
       <div className="mx-auto max-w-5xl px-8 pt-8 pb-16">
-        <Link to={`/w/${workspace.id}/intel`} className="mb-4 inline-flex items-center gap-1 text-[13px] text-ink-soft hover:text-ink">
+        <Link to={`/w/${workspace.id}/agents`} className="mb-4 inline-flex items-center gap-1 text-[13px] text-ink-soft hover:text-ink">
           <ArrowLeft size={14} /> Riset & Insight
         </Link>
         <IntelHeader

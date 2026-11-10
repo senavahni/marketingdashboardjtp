@@ -50,11 +50,17 @@ const EVENTS_LIMIT = 500;
 const ACTIVE_STATUSES: intel_job_status[] = ['queued', 'collecting', 'analyzing', 'indexing', 'cancelling'];
 type AgentStage = 'collect' | 'analyze' | 'index';
 const AGENT_STAGES: AgentStage[] = ['collect', 'analyze', 'index'];
-/** Agent standar untuk tombol "Tambah agent default" — sama dengan seed workspace Demo. */
-const DEFAULT_AGENTS: { key: string; name: string; description: string; stage: AgentStage }[] = [
-  { key: 'researcher', name: 'Agent_Researcher', description: 'Riset pasar & kompetitor', stage: 'collect' },
-  { key: 'analyst', name: 'Agent_Analyst', description: 'Menganalisis sentimen & tren', stage: 'analyze' },
-  { key: 'strategist', name: 'Agent_Strategist', description: 'Menyusun strategi & kalender konten', stage: 'index' },
+/**
+ * Agent standar untuk tombol "Tambah agent default" (DSH-V1-04, V1-K17). `stage` = default tahap job sosial Modul 3;
+ * agent v1.0.0 tanpa stage dipilih MCP per tahap job kind baru (kontrak 1.3, `spec.agents` kosong = default MCP).
+ */
+export const DEFAULT_AGENTS: { key: string; name: string; description: string; stage: AgentStage | null }[] = [
+  { key: 'researcher', name: 'Agent_Researcher', description: 'Riset pasar, kata kunci & social listening', stage: 'collect' },
+  { key: 'analyst', name: 'Agent_Analyst', description: 'Analisis produk, segmen, sentimen & insight', stage: 'analyze' },
+  { key: 'strategist', name: 'Agent_Strategist', description: 'Strategi digital marketing & content brief', stage: 'index' },
+  { key: 'creative', name: 'Agent_Creative', description: 'Bank konten: ide, hook, caption, brief visual', stage: null },
+  { key: 'curator', name: 'Agent_Curator', description: 'Knowledge card, knowledge graph & doktrin dari buku', stage: null },
+  { key: 'prospector', name: 'Agent_Prospector', description: 'Import, discovery, Contact Finder & enrichment perusahaan', stage: null },
 ];
 
 function uniqueHandle(base: string, taken: Set<string>): string {
@@ -131,7 +137,7 @@ export class IntelService {
           await this.activity.log(tx, { workspaceId, entityType: 'agent', entityId: agent.id, action: 'agent.created', actor: userActor(user), metadata: { agent_id: agent.id, bootstrap: true } });
           created.push(def.name);
         }
-        if (!agent.is_active || filledStages.has(def.stage) || !profile.capabilities.includes(def.stage)) continue;
+        if (!def.stage || !agent.is_active || filledStages.has(def.stage) || !profile.capabilities.includes(def.stage)) continue;
         await tx.intel_stage_defaults.create({ data: { workspace_id: workspaceId, stage: def.stage, agent_id: agent.id, updated_by: user.id } });
         defaults.push(def.stage);
       }

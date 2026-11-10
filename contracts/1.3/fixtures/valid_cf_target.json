@@ -1,0 +1,44 @@
+{
+  "name": "valid_cf_target",
+  "schema": "cf_target",
+  "valid": true,
+  "payload": {
+    "target_id": "cf_abc123def4",
+    "company_id": "55555555-5555-4555-8555-555555555555",
+    "name": "SMA Harapan Cimahi",
+    "kbli_code": "85",
+    "region_name": "Kota Cimahi",
+    "priority": 2,
+    "hint": {
+      "city": "Cimahi"
+    },
+    "status": "found",
+    "attempts": 1,
+    "candidates": [
+      {
+        "candidate_id": "cc_abc123def4",
+        "name": "SMA Harapan",
+        "address": "Jl. Amir Machmud 12, Cimahi",
+        "domain": "smaharapan.sch.id",
+        "distance_km": 0.4,
+        "reason": "Nama & kota cocok, domain .sch.id",
+        "confidence": 0.71
+      },
+      {
+        "candidate_id": "cc_bcd234efg5",
+        "name": "SMA Harapan Bangsa",
+        "address": "Jl. Baros 5, Cimahi",
+        "domain": null,
+        "distance_km": 3.1,
+        "reason": "Nama mirip, tanpa website",
+        "confidence": 0.44
+      }
+    ],
+    "found": {
+      "website": "smaharapan.sch.id",
+      "phone": null,
+      "email_generic": "tu@smaharapan.sch.id"
+    },
+    "last_attempt_at": "2026-11-10T02:00:00Z"
+  }
+}

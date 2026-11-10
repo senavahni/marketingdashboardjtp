@@ -46,7 +46,7 @@ export function IntelJobPage() {
   const actions = useJobAction(workspace.id, jobId);
   useIntelRealtime(workspace.id);
 
-  const base = `/w/${workspace.id}/intel`;
+  const base = `/w/${workspace.id}/agents`;
   const agentName = (id: string) => agents?.find((a) => a.id === id)?.name;
 
   if (isLoading) return <FullPageSpinner />;
@@ -241,7 +241,7 @@ export function IntelJobPage() {
           onOpenChange={(o) => !o && setRetryKey(null)}
           onCreated={(id) => {
             setRetryKey(null);
-            navigate(`${base}/${id}`);
+            navigate(`${base}/jobs/${id}`);
           }}
         />
       )}

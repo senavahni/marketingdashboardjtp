@@ -1,0 +1,12 @@
+{
+  "name": "invalid_doctrine_bad_role",
+  "schema": "doctrine",
+  "valid": false,
+  "payload": {
+    "role": "janitor",
+    "active": null,
+    "pending": null,
+    "history": []
+  },
+  "expect_path": "role"
+}

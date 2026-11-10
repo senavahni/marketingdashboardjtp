@@ -1,0 +1,9 @@
+{
+  "name": "valid_kn_card_decision",
+  "schema": "kn_card_decision",
+  "valid": true,
+  "payload": {
+    "updated": 2,
+    "status": "approved"
+  }
+}

@@ -40,6 +40,32 @@ import {
   oppListSchema,
   uploadAcceptedSchema,
 } from '../../src/shared/schemas/intel-1.3-tools.schema';
+import {
+  cfTargetListSchema,
+  cfTargetSchema,
+  cfTargetUpdateInputSchema,
+  ciImportRowDecideInputSchema,
+  importBatchDetailSchema,
+  importBatchListSchema,
+  importRollbackSchema,
+  importRowDecisionSchema,
+  importRowListSchema,
+  uploadProfileSchema,
+} from '../../src/shared/schemas/intel-1.3-import.schema';
+import {
+  doctrineSchema,
+  kgGraphSchema,
+  kgNeighborsSchema,
+  knCardDecideInputSchema,
+  knCardDecisionSchema,
+  knCardListSchema,
+  knSearchSchema,
+  knowledgeCardSchema,
+  pbListSchema,
+  pbRunSchema,
+  pbSaveInputSchema,
+  playbookSchema,
+} from '../../src/shared/schemas/intel-1.3-knowledge.schema';
 import { intelEventEnvelopeSchema, isIntelEventBody } from '../../src/shared/schemas/intel.schema';
 
 const CONTRACT = resolve(__dirname, '../../../contracts/1.3');
@@ -79,6 +105,30 @@ const SCHEMAS: Record<string, z.ZodType> = {
   kn_asset_list: knAssetListSchema,
   data_export_input: dataExportInputSchema,
   data_export: dataExportSchema,
+  // Import & Contact Finder (DSH-V1-06)
+  upload_profile: uploadProfileSchema,
+  import_batch_list: importBatchListSchema,
+  import_batch_detail: importBatchDetailSchema,
+  import_row_list: importRowListSchema,
+  import_row_decide_input: ciImportRowDecideInputSchema,
+  import_row_decision: importRowDecisionSchema,
+  import_rollback: importRollbackSchema,
+  cf_target_list: cfTargetListSchema,
+  cf_target: cfTargetSchema,
+  cf_target_update_input: cfTargetUpdateInputSchema,
+  // Knowledge Library (DSH-V1-09)
+  kn_search: knSearchSchema,
+  kn_card_list: knCardListSchema,
+  kn_card_decide_input: knCardDecideInputSchema,
+  kn_card_decision: knCardDecisionSchema,
+  knowledge_card: knowledgeCardSchema,
+  doctrine: doctrineSchema,
+  pb_list: pbListSchema,
+  playbook: playbookSchema,
+  pb_save_input: pbSaveInputSchema,
+  pb_run: pbRunSchema,
+  kg_graph: kgGraphSchema,
+  kg_neighbors: kgNeighborsSchema,
 };
 
 const files = readdirSync(FIXTURES)

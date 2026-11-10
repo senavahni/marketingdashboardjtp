@@ -17,7 +17,7 @@ export function IntelMissionsPage() {
   const [formKey, setFormKey] = useState<number | null>(null);
   const missions = useMissions(workspace.id);
   const canCreate = workspace.role !== 'viewer';
-  const base = `/w/${workspace.id}/intel`;
+  const base = `/w/${workspace.id}/agents`;
 
   if (isIntelDisabled(missions.error)) return <EmptyState icon="🛰️" title="Modul Riset & Insight belum diaktifkan" />;
 
@@ -56,7 +56,7 @@ export function IntelMissionsPage() {
           <div className="space-y-3" data-tour="mission-list">
             {missions.data.map((m) => {
               const counts = planCounts(m.plan);
-              const href = m.source === 'intel_job' && m.intel_job_id ? `${base}/${m.intel_job_id}` : `${base}/missions/${m.id}`;
+              const href = m.source === 'intel_job' && m.intel_job_id ? `${base}/jobs/${m.intel_job_id}` : `${base}/missions/${m.id}`;
               return (
                 <Link key={m.id} to={href} className="block">
                   <Card className="transition-shadow hover:shadow-[0_4px_16px_rgba(15,35,64,0.08)]">

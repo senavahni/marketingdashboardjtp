@@ -42,6 +42,7 @@
     "pptxgenjs": "4.0.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "react-force-graph-2d": "1.29.2",
     "react-router": "8.5.1",
     "recharts": "3.10.1",
     "socket.io-client": "4.8.4",

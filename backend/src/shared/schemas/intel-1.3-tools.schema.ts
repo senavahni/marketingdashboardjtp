@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import type { McpToolImport } from './intel-1.3-import.schema';
+import type { McpToolKnowledge } from './intel-1.3-knowledge.schema';
 import { uuid } from './common.schema';
 import {
   COMPANY_ORIGINS,
@@ -44,7 +46,8 @@ export const MCP_TOOLS_13 = [
   'kn_asset_list',
   'data_export',
 ] as const;
-export type McpTool13 = (typeof MCP_TOOLS_13)[number];
+/** Termasuk toolset import/Contact Finder & knowledge (file schema terpisah, kontrak 1.3 aditif). */
+export type McpTool13 = (typeof MCP_TOOLS_13)[number] | McpToolImport | McpToolKnowledge | 'intel_agents_list';
 
 // ---------------------------------------------------------------------------- upload (HTTP, bukan tool)
 

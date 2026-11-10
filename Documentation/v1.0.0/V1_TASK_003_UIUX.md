@@ -1,6 +1,6 @@
 # Task: Rancangan UI/UX v1.0.0 — Market Intelligence
 **ID:** DSH-V1-03
-**Status:** Draf untuk persetujuan PO (9 Nov 2026) — implementasi layar dikerjakan oleh DSH-V1-04…13
+**Status:** Disetujui PO 10 Nov 2026 (§I) — implementasi layar dikerjakan oleh DSH-V1-04…13
 **Repo:** `marketingdashboardjtp`
 **Dependencies:** — (membaca kontrak 1.3 `contracts/1.3/` hanya untuk nama field & state)
 **Estimasi:** 3 person-days
@@ -393,11 +393,21 @@ Aturan: **tidak ada layar yang menampilkan kosong tanpa alasan**. Setiap sel di 
 
 **Perubahan rancangan** setelah persetujuan wajib dicatat di bagian ini (tanggal, layar, alasan).
 
-## I. Keputusan terbuka untuk PO
-1. **Approve strategi dengan klaim tanpa sitasi**: usul = *peringatan + konfirmasi* (bukan blokir keras). Alternatif: blokir.
-2. **Penempatan Katalog Produk**: usul = di *Data Management → Produk*, bukan item sidebar. Alternatif: item sidebar sendiri.
-3. **Pemindahan URL Intel lama** ke `/agents/*`: usul seperti B.2 dengan redirect; alternatif: pertahankan `/intel` dan hanya menambah menu baru.
-4. **Keputusan massal approval**: usul = hanya kartu pengetahuan & item konten; jenis lain wajib satu per satu.
+| Tanggal | Layar | Perubahan & alasan |
+|---|---|---|
+| 10 Nov 2026 | Agent Workspace | Tab ditambah **Riset sosial** (`/agents`, halaman job Modul 3 tanpa perubahan) di samping **Job** (`/agents/jobs`, job kind 1.3) — agar Modul 3 tetap utuh sampai DSH-V1-13 menyatukan daftar. |
+| 10 Nov 2026 | Menu belum dibangun | Overview, Market, Companies (daftar/peta), Opportunity, Strategy, Bank Konten menampilkan `StateView coming-soon` dengan ID task-nya (bukan layar kosong); Companies menautkan Import & Contact Finder. |
+| 10 Nov 2026 | Data Management | `/data` sementara diarahkan ke `/data/sources` (halaman Sumber Modul 3) sampai tab Produk/Taksonomi/Kualitas/Suppression dikerjakan (DSH-V1-05/13). |
+
+## I. Keputusan PO — **disetujui 10 Nov 2026** (semua sesuai usulan)
+| # | Pertanyaan | Keputusan |
+|---|---|---|
+| 1 | Approve strategi dengan klaim tanpa sitasi | **Boleh**, dengan peringatan + dialog konfirmasi (tidak diblokir). Chip kuning "Tanpa sitasi" tetap tampil. |
+| 2 | Penempatan Katalog Produk | Di **Data Management → Produk** (bukan item sidebar); wizard punya tombol "Kelola produk". |
+| 3 | URL Intel lama | Dipindah ke **`/agents/*`** dengan redirect dari URL lama (B.2). |
+| 4 | Approve massal | **Hanya** kartu pengetahuan & item konten; jenis lain wajib satu per satu (UI tidak menampilkan kotak centang massal untuk jenis lain). |
+
+Dengan ini AC #1 terpenuhi; DSH-V1-04…13 boleh dikerjakan.
 
 ## Acceptance Criteria
 1. Dokumen ini disetujui PO sebelum DSH-V1-05…13 mulai dikerjakan (poin §I terjawab).

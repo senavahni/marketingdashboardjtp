@@ -243,7 +243,7 @@ function Agents({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boolea
             <Button onClick={() => setForm({})}>
               <Plus size={14} /> Tambah agent
             </Button>
-            <Button onClick={() => void bootstrap()} disabled={bootstrapping} title="Buat Agent_Researcher, Agent_Analyst & Agent_Strategist dari MCP lalu jadikan default tiap tahap riset">
+            <Button onClick={() => void bootstrap()} disabled={bootstrapping} title="Buat 6 agent default (researcher, analyst, strategist, creative, curator, prospector) dari MCP lalu isi default tahap riset yang kosong">
               <Bot size={14} /> {bootstrapping ? 'Menambahkan…' : 'Tambah agent default'}
             </Button>
           </div>

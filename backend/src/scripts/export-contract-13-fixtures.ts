@@ -8,6 +8,7 @@
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { WORKFLOW_FIXTURES } from './contract-13-fixtures-workflow';
 
 interface Fixture {
   name: string;
@@ -275,6 +276,7 @@ const FIXTURES: Fixture[] = [
   invalid('event_review_bad_subject', 'event', env('intel.job.awaiting_review', { stage: 's1', review_id: 'r_abc123def4', subject_type: 'invoice', subject_ref: 'x', summary: 'x' }), 'data.subject_type'),
   invalid('event_import_rows_over_max', 'event', env('ci.import.status', { batch_id: 'ib_abc123def4', status: 'inserting', rows_total: 50_001, rows_inserted: 0, rows_merged: 0, rows_review: 0, rows_failed: 0 }), 'data.rows_total'),
   invalid('event_batch_extra_field', 'event', env('ct.batch.ready', { batch_id: 'cb_abc123def4', strategy_report_id: 'sr_abc123def4', items_count: 3, url: 'x' }), 'data.url'),
+  ...WORKFLOW_FIXTURES,
 ];
 
 function main(): void {

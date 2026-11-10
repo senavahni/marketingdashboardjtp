@@ -1,0 +1,10 @@
+{
+  "name": "invalid_upload_profile_no_sheet",
+  "schema": "upload_profile",
+  "valid": false,
+  "payload": {
+    "upload_id": "u_abc123def4",
+    "sheets": []
+  },
+  "expect_path": "sheets"
+}

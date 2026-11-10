@@ -1,0 +1,28 @@
+{
+  "name": "invalid_kn_card_bad_type",
+  "schema": "kn_card_list",
+  "valid": false,
+  "payload": {
+    "items": [
+      {
+        "card_id": "kc_abc123def4",
+        "asset_id": "ka_abc123def4",
+        "book_title": "Buku Marketing",
+        "card_type": "gossip",
+        "title": "AIDA",
+        "body": "Attention → Interest → Desire → Action. Gunakan hook yang memicu perhatian sebelum menjelaskan manfaat.",
+        "page_from": 42,
+        "page_to": 44,
+        "roles": [
+          "strategist",
+          "creative"
+        ],
+        "status": "draft",
+        "version": 1
+      }
+    ],
+    "next_cursor": null,
+    "total_estimate": 1
+  },
+  "expect_path": "items.0.card_type"
+}

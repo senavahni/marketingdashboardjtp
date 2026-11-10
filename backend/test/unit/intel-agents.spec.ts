@@ -155,6 +155,22 @@ describe('IntelService.bootstrapAgents (Tambah agent default)', () => {
     expect(res.defaults).toEqual(['collect', 'index']);
   });
 
+  it('DSH-V1-04: 6 agent default bila profil MCP aktif; agent v1 (creative/curator/prospector) tanpa default tahap 1.2', async () => {
+    const h = bootstrapHarness([]);
+    h.mcp.call.mockResolvedValue({
+      agents: [
+        ...PROFILES,
+        profile('creative', ['create_content'], ['ct', 'kn']),
+        profile('curator', ['extract_knowledge'], ['kn', 'kg']),
+        profile('prospector', ['discover', 'enrich', 'import_map', 'find_contacts'], ['ci', 'web']),
+      ],
+    });
+    const res = await h.service.bootstrapAgents(user, ws);
+    expect(h.tx.agents.create.mock.calls.map(([a]) => a.data.mcp_agent_key)).toEqual(['researcher', 'analyst', 'strategist', 'creative', 'curator', 'prospector']);
+    expect(res.defaults).toEqual(['collect', 'analyze', 'index']);
+    expect(res.created).toContain('Agent_Prospector');
+  });
+
   it('profil yang tidak ada / nonaktif di MCP dilewati', async () => {
     const h = bootstrapHarness([]);
     h.mcp.call.mockResolvedValue({ agents: [profile('researcher', ['collect'], ['web']), profile('analyst', ['analyze'], ['analysis'], { is_active: false })] });

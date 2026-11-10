@@ -16,13 +16,8 @@ import { TaskPage } from './pages/TaskPage';
 
 // Modul 2 (beserta Recharts) dimuat saat menu dibuka agar bundle awal tidak membesar
 const WebReportPage = lazy(() => import('./pages/WebReportPage').then((m) => ({ default: m.WebReportPage })));
-// Modul 3: semua halaman Riset & Insight lazy (bundle awal tidak membesar)
-const IntelPage = lazy(() => import('./pages/IntelPage').then((m) => ({ default: m.IntelPage })));
-const IntelJobPage = lazy(() => import('./pages/IntelJobPage').then((m) => ({ default: m.IntelJobPage })));
-const IntelSourcesPage = lazy(() => import('./pages/IntelSourcesPage').then((m) => ({ default: m.IntelSourcesPage })));
-const IntelMissionsPage = lazy(() => import('./pages/IntelMissionsPage').then((m) => ({ default: m.IntelMissionsPage })));
-const IntelMissionPage = lazy(() => import('./pages/IntelMissionPage').then((m) => ({ default: m.IntelMissionPage })));
-const lazyPage = (page: ReactNode) => <Suspense fallback={<FullPageSpinner />}>{page}</Suspense>;
+// Modul 3 + v1.0.0 Market Intelligence: semua halaman lazy di pages/mi/routes (bundle awal tidak membesar)
+import { miRoutes } from './pages/mi/routes';
 import { WorkspaceHome } from './pages/WorkspaceHome';
 
 /** Saat app dimuat: access token didapat dari refresh cookie (token tidak disimpan di storage). */
@@ -82,11 +77,7 @@ const router = createBrowserRouter([
           </Suspense>
         ),
       },
-      { path: 'intel', element: lazyPage(<IntelPage />) },
-      { path: 'intel/sources', element: lazyPage(<IntelSourcesPage />) },
-      { path: 'intel/missions', element: lazyPage(<IntelMissionsPage />) },
-      { path: 'intel/missions/:missionId', element: lazyPage(<IntelMissionPage />) },
-      { path: 'intel/:jobId', element: lazyPage(<IntelJobPage />) },
+      ...miRoutes,
     ],
   },
   { path: '*', element: <EmptyState icon="🧭" title="Halaman tidak ditemukan" /> },
